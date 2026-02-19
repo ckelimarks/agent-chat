@@ -124,12 +124,13 @@
         .agent-item {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             padding: 10px 12px;
             border-radius: 10px;
             cursor: pointer;
             transition: all 0.2s ease;
             border: 1px solid transparent;
+            position: relative;
         }
 
         .agent-item:hover {
@@ -171,7 +172,7 @@
             border-color: rgba(168, 85, 247, 0.3);
         }
 
-        .agent-item.orchestrator .agent-role {
+        .agent-item.orchestrator .agent-status {
             color: var(--accent);
         }
 
@@ -216,9 +217,86 @@
             border: 2px solid var(--bg-secondary);
         }
 
-        .status-dot.online { background: var(--online); box-shadow: 0 0 8px var(--online); }
-        .status-dot.busy { background: var(--busy); box-shadow: 0 0 8px var(--busy); }
-        .status-dot.offline { background: var(--offline); }
+        .status-dot.offline { background: #666; }
+
+        /* ============ AGENT STATES ============ */
+
+        /* Idle - gray dot */
+        .agent-item.state-idle .status-dot {
+            background: #666;
+        }
+
+        /* Working - blue fading border + row */
+        .agent-item.state-working .status-dot {
+            background: #3b82f6;
+        }
+
+        .agent-item.state-working .agent-avatar {
+            border: 2px solid #3b82f6;
+            animation: border-fade 2s ease-in-out infinite;
+        }
+
+        .agent-item.state-working {
+            animation: row-fade 2s ease-in-out infinite;
+        }
+
+        .agent-item.state-working .agent-status {
+            color: #3b82f6;
+        }
+
+        /* Attention - orange dot + pulsing badge */
+        .agent-item.state-attention .status-dot {
+            background: #f97316;
+        }
+
+        .agent-item.state-attention .agent-status {
+            color: #f97316;
+        }
+
+        .agent-item.state-attention .notification-badge {
+            background: #f97316;
+            animation: pulse-orange 1s ease-in-out infinite;
+        }
+
+        /* Done - green dot + badge */
+        .agent-item.state-done .status-dot {
+            background: #22c55e;
+        }
+
+        .agent-item.state-done .agent-status {
+            color: #22c55e;
+        }
+
+        .agent-item.state-done .notification-badge {
+            background: #22c55e;
+        }
+
+        /* Notification badge base */
+        .notification-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-left: 4px;
+        }
+
+        /* ============ ANIMATIONS ============ */
+
+        @keyframes border-fade {
+            0%, 100% { border-color: #3b82f6; }
+            50% { border-color: #3b82f620; }
+        }
+
+        @keyframes row-fade {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+        }
 
         .agent-info {
             flex: 1;
@@ -234,17 +312,21 @@
             letter-spacing: -0.01em;
         }
 
-        .agent-role {
+        .agent-status {
             font-size: 11px;
             color: var(--text-muted);
             margin-top: 2px;
         }
 
         .agent-actions {
+            position: absolute;
+            right: 8px;
             display: flex;
             gap: 2px;
             opacity: 0;
             transition: opacity 0.2s;
+            background: inherit;
+            padding-left: 4px;
         }
 
         .agent-item:hover .agent-actions {
@@ -1124,10 +1206,25 @@
             state.terminal.open(container);
             state.fitAddon.fit();
 
-            // Handle terminal input
+            // Handle terminal input - chunk large pastes to avoid overwhelming PTY
             state.terminal.onData(data => {
                 if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
-                    state.websocket.send(data);
+                    const CHUNK_SIZE = 128;
+                    if (data.length <= CHUNK_SIZE) {
+                        state.websocket.send(data);
+                    } else {
+                        // Chunk large pastes
+                        let i = 0;
+                        const sendChunk = () => {
+                            if (i < data.length) {
+                                const chunk = data.slice(i, i + CHUNK_SIZE);
+                                state.websocket.send(chunk);
+                                i += CHUNK_SIZE;
+                                setTimeout(sendChunk, 10);
+                            }
+                        };
+                        sendChunk();
+                    }
                 }
             });
 
@@ -1231,9 +1328,25 @@
         // =====================================================================
         // UI Rendering
         // =====================================================================
+        function updateTabTitle() {
+            const attention = state.agents.filter(a => a.notification === 'attention').length;
+            const done = state.agents.filter(a => a.notification === 'done').length;
+
+            if (attention > 0) {
+                document.title = `(!) Agent Chat`;
+            } else if (done > 0) {
+                document.title = `(${done}) Agent Chat`;
+            } else {
+                document.title = 'Agent Chat';
+            }
+        }
+
         function renderAgentList() {
             const orchestratorSlot = document.getElementById('orchestratorSlot');
             const workersList = document.getElementById('workersList');
+
+            // Update tab title based on notifications
+            updateTabTitle();
 
             // Separate orchestrator and workers
             const orchestrator = state.agents.find(a => a.role === 'orchestrator');
@@ -1271,20 +1384,45 @@
 
         function createAgentItem(agent, isOrchestrator) {
             const item = document.createElement('div');
-            item.className = `agent-item ${state.currentAgent?.id === agent.id ? 'active' : ''} ${isOrchestrator ? 'orchestrator' : ''}`;
 
-            const roleLabel = isOrchestrator ? 'orchestrator' : (agent.model || 'sonnet');
+            // Determine state class
+            let stateClass = 'state-idle';
+            let statusText = 'Idle';
+            let showBadge = false;
+
+            if (agent.notification === 'attention') {
+                stateClass = 'state-attention';
+                statusText = 'Needs approval';
+                showBadge = true;
+            } else if (agent.notification === 'done') {
+                stateClass = 'state-done';
+                statusText = 'Done';
+                showBadge = true;
+            } else if (agent.status === 'busy') {
+                stateClass = 'state-working';
+                statusText = 'Working...';
+            } else if (agent.status === 'online') {
+                stateClass = 'state-idle';
+                statusText = 'Idle';
+            } else {
+                stateClass = '';
+                statusText = 'Offline';
+            }
+
+            item.className = `agent-item ${state.currentAgent?.id === agent.id ? 'active' : ''} ${isOrchestrator ? 'orchestrator' : ''} ${stateClass}`;
+
             const iconName = isOrchestrator ? 'crown' : (agent.icon || agent.emoji || 'bot');
 
             item.innerHTML = `
                 <div class="agent-avatar">
                     <i data-lucide="${iconName}"></i>
-                    <div class="status-dot ${agent.status || 'offline'}"></div>
+                    <div class="status-dot"></div>
                 </div>
                 <div class="agent-info">
                     <div class="agent-name">${agent.display_name || agent.name}</div>
-                    <div class="agent-role">${roleLabel}</div>
+                    <div class="agent-status">${statusText}</div>
                 </div>
+                ${showBadge ? '<div class="notification-badge"></div>' : ''}
                 <div class="agent-actions">
                     <button class="agent-action-btn" onclick="event.stopPropagation(); showEditModal('${agent.id}')" title="Edit"><i data-lucide="pencil"></i></button>
                     ${!isOrchestrator ? `<button class="agent-action-btn" onclick="event.stopPropagation(); promoteToOrchestrator('${agent.id}')" title="Promote to Orchestrator"><i data-lucide="crown"></i></button>` : ''}
@@ -1326,6 +1464,14 @@
         // =====================================================================
         function selectAgent(agent) {
             state.currentAgent = agent;
+
+            // Clear notification for this agent
+            if (agent.notification) {
+                api(`/api/agents/${agent.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ notification: null })
+                }).then(() => fetchAgents());
+            }
 
             // Update UI
             document.getElementById('emptyState').classList.add('hidden');
@@ -1687,8 +1833,8 @@
 
             await fetchAgents();
 
-            // Periodically refresh agent list
-            setInterval(fetchAgents, 5000);
+            // Periodically refresh agent list (2s for responsive working animation)
+            setInterval(fetchAgents, 2000);
         }
 
         init();

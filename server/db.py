@@ -38,6 +38,20 @@ def init_db():
         with open(SCHEMA_PATH) as f:
             conn.executescript(f.read())
 
+    # Run migrations for existing databases
+    _run_migrations()
+
+
+def _run_migrations():
+    """Run database migrations for existing databases."""
+    with get_connection() as conn:
+        # Check if notification column exists
+        cursor = conn.execute("PRAGMA table_info(agents)")
+        columns = [row['name'] for row in cursor.fetchall()]
+
+        if 'notification' not in columns:
+            conn.execute("ALTER TABLE agents ADD COLUMN notification TEXT DEFAULT NULL")
+
 
 def row_to_dict(row: sqlite3.Row) -> Dict[str, Any]:
     """Convert sqlite Row to dictionary."""
@@ -103,7 +117,7 @@ def list_agents() -> List[Dict[str, Any]]:
 
 def update_agent(agent_id: str, **kwargs) -> Optional[Dict[str, Any]]:
     """Update agent fields."""
-    allowed = {'name', 'display_name', 'avatar_path', 'emoji', 'model', 'cwd', 'system_prompt', 'role', 'status'}
+    allowed = {'name', 'display_name', 'avatar_path', 'emoji', 'model', 'cwd', 'system_prompt', 'role', 'status', 'notification'}
     updates = {k: v for k, v in kwargs.items() if k in allowed}
 
     if not updates:
@@ -129,6 +143,17 @@ def set_agent_status(agent_id: str, status: str):
     """Update agent status (offline/online/busy)."""
     with get_connection() as conn:
         conn.execute("UPDATE agents SET status = ? WHERE id = ?", (status, agent_id))
+
+
+def set_notification(agent_id: str, state: str):
+    """Set notification state: 'attention', 'done', or None to clear."""
+    with get_connection() as conn:
+        conn.execute("UPDATE agents SET notification = ? WHERE id = ?", (state, agent_id))
+
+
+def clear_notification(agent_id: str):
+    """Clear notification for an agent."""
+    set_notification(agent_id, None)
 
 
 # =============================================================================

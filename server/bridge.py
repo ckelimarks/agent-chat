@@ -234,8 +234,9 @@ class AgentChatHandler(BaseHTTPRequestHandler):
             # Add user message
             user_msg = db.add_message(thread_id, 'user', data['content'])
 
-            # Update agent status
+            # Update agent status and clear any notification
             db.set_agent_status(agent['id'], 'busy')
+            db.clear_notification(agent['id'])
 
             # Send to Claude asynchronously
             pm = get_process_manager()
@@ -399,6 +400,11 @@ def run_server():
     # Initialize database
     db.init_db()
     logger.info(f"Database initialized at {db.DB_PATH}")
+
+    # Reset stale statuses from previous session
+    with db.get_connection() as conn:
+        conn.execute("UPDATE agents SET status = 'offline', notification = NULL")
+    logger.info("Reset agent statuses on startup")
 
     # Start server
     server = HTTPServer(('localhost', PORT), AgentChatHandler)

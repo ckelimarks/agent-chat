@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS agents (
     system_prompt TEXT,
     role TEXT DEFAULT 'worker',  -- 'worker' | 'manager'
     status TEXT DEFAULT 'offline',  -- 'offline' | 'online' | 'busy'
+    notification TEXT DEFAULT NULL,  -- NULL | 'attention' | 'done'
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

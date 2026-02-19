@@ -34,12 +34,18 @@ logger = logging.getLogger(__name__)
 
 WS_PORT = 8891
 HEARTBEAT_INTERVAL = 120  # seconds (2 minutes)
+IDLE_THRESHOLD = 5  # seconds before marking as 'done'
 
 # Track connected clients per agent
 clients: Dict[str, Set[Any]] = {}
 
 # Track agent metadata for heartbeats
 agent_metadata: Dict[str, Dict] = {}
+
+# Track last output time per agent for idle detection
+last_output_time: Dict[str, float] = {}
+agent_was_busy: Dict[str, bool] = {}
+agent_waiting_for_response: Dict[str, bool] = {}
 
 # Global event loop reference
 main_loop = None
@@ -77,11 +83,31 @@ async def handle_terminal(websocket):
 
     # Define output callback to send to all clients
     def on_output(data: bytes):
+        import time
+
         if main_loop:
             asyncio.run_coroutine_threadsafe(
                 broadcast_output(agent_id, data),
                 main_loop
             )
+
+        # Only track "working" activity when output is part of a user-initiated turn.
+        if agent_waiting_for_response.get(agent_id, False):
+            last_output_time[agent_id] = time.time()
+            agent_was_busy[agent_id] = True
+            db.set_agent_status(agent_id, 'busy')
+            # Clear any existing notification when output resumes
+            db.clear_notification(agent_id)
+
+        # Check for bell character (permission prompt) - only during user-initiated turns
+        if agent_waiting_for_response.get(agent_id, False):
+            try:
+                text = data.decode('utf-8', errors='ignore')
+                if '\x07' in text or '\a' in text:
+                    logger.info(f"Bell detected for agent {agent_id} - setting attention")
+                    db.set_notification(agent_id, 'attention')
+            except Exception as e:
+                logger.debug(f"Bell detection error: {e}")
 
         # Parse for REPORT blocks (workers only)
         if agent.get('role') != 'orchestrator':
@@ -103,6 +129,11 @@ async def handle_terminal(websocket):
     if session_created:
         # Existing session - update callback and send scrollback
         pty_mgr.set_output_callback(agent_id, on_output)
+        # Reset state on reconnect - fresh start
+        agent_waiting_for_response[agent_id] = False
+        agent_was_busy[agent_id] = False
+        db.clear_notification(agent_id)
+        db.set_agent_status(agent_id, 'online')
         scrollback = pty_mgr.get_scrollback(agent_id)
         if scrollback:
             await websocket.send(scrollback)
@@ -110,7 +141,9 @@ async def handle_terminal(websocket):
     try:
         async for message in websocket:
             if isinstance(message, bytes):
-                # Raw terminal input
+                # Raw terminal input - only mark as waiting when Enter is pressed
+                if message and (b'\r' in message or b'\n' in message):
+                    agent_waiting_for_response[agent_id] = True
                 pty_mgr.write(agent_id, message)
             else:
                 # JSON command
@@ -146,6 +179,7 @@ async def handle_terminal(websocket):
                                 agent_name=agent.get('display_name') or agent.get('name')
                             )
                             db.set_agent_status(agent_id, 'online')
+                            agent_waiting_for_response[agent_id] = False
                             session_created = True
 
                             # Write heartbeat and session log for non-orchestrator agents
@@ -172,9 +206,14 @@ async def handle_terminal(websocket):
                             pty_mgr.resize(agent_id, rows, cols)
                     elif cmd.get('type') == 'input':
                         data = cmd.get('data', '')
+                        # Only mark as waiting when Enter is pressed
+                        if data and ('\r' in data or '\n' in data):
+                            agent_waiting_for_response[agent_id] = True
                         pty_mgr.write(agent_id, data.encode())
                 except json.JSONDecodeError:
-                    # Treat as raw input
+                    # Treat as raw input - only mark as waiting when Enter is pressed
+                    if message and ('\r' in message or '\n' in message):
+                        agent_waiting_for_response[agent_id] = True
                     pty_mgr.write(agent_id, message.encode())
 
     except websockets.exceptions.ConnectionClosed:
@@ -200,6 +239,29 @@ async def broadcast_output(agent_id: str, data: bytes):
                 await ws.send(data)
             except websockets.exceptions.ConnectionClosed:
                 clients[agent_id].discard(ws)
+
+
+async def idle_check_timer():
+    """Check for idle agents and mark them as 'done'."""
+    import time
+
+    while True:
+        await asyncio.sleep(2)  # Check every 2 seconds
+
+        current_time = time.time()
+
+        for agent_id, last_time in list(last_output_time.items()):
+            # Check if agent has been idle long enough
+            idle_seconds = current_time - last_time
+            if idle_seconds > IDLE_THRESHOLD and agent_was_busy.get(agent_id, False):
+                # Check current notification state - don't overwrite 'attention'
+                agent = db.get_agent(agent_id)
+                if agent and agent.get('notification') != 'attention':
+                    logger.info(f"Agent {agent_id} idle for {idle_seconds:.1f}s - setting done")
+                    db.set_notification(agent_id, 'done')
+                    db.set_agent_status(agent_id, 'online')  # Back to online from busy
+                    agent_was_busy[agent_id] = False
+                    # Keep agent_waiting_for_response True so resumed output triggers Working again
 
 
 async def heartbeat_timer():
@@ -252,13 +314,18 @@ async def main():
     # Start heartbeat timer
     heartbeat_task = asyncio.create_task(heartbeat_timer())
 
+    # Start idle check timer for notifications
+    idle_task = asyncio.create_task(idle_check_timer())
+
     async with serve(handle_terminal, "localhost", WS_PORT):
         logger.info(f"WebSocket server running at ws://localhost:{WS_PORT}")
         logger.info(f"Heartbeat interval: {HEARTBEAT_INTERVAL}s")
+        logger.info(f"Idle threshold for 'done': {IDLE_THRESHOLD}s")
         await stop
 
-    # Cancel heartbeat timer
+    # Cancel timers
     heartbeat_task.cancel()
+    idle_task.cancel()
 
     # Cleanup PTY sessions
     pty_mgr = get_pty_manager()

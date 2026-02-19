@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Chat</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- xterm.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #0c0c0e;
+            --bg-tertiary: #18181b;
+            --bg-elevated: #27272a;
+            --accent: #a855f7;
+            --accent-hover: #c084fc;
+            --accent-glow: rgba(168, 85, 247, 0.15);
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border: #27272a;
+            --border-subtle: #1f1f23;
+            --success: #22c55e;
+            --warning: #eab308;
+            --error: #ef4444;
+            --online: #22c55e;
+            --busy: #eab308;
+            --offline: #52525b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Layout */
+        .app {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-header .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .workspace-badge {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: auto;
+        }
+
+        /* Agent List */
+        .agent-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        .agent-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .agent-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .agent-item.active {
+            background: var(--accent-glow);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        /* Orchestrator styling */
+        .orchestrator-section {
+            padding: 0 0 12px 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .orchestrator-section .section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            padding: 4px 0;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .agent-item.orchestrator {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .agent-item.orchestrator:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        .agent-item.orchestrator .agent-role {
+            color: var(--accent);
+        }
+
+        .workers-section {
+            padding: 0;
+        }
+
+        .workers-section .section-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 4px 0;
+            margin-bottom: 8px;
+        }
+
+        .agent-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            color: var(--text-secondary);
+        }
+
+        .agent-avatar svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .status-dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-secondary);
+        }
+
+        .status-dot.online { background: var(--online); box-shadow: 0 0 8px var(--online); }
+        .status-dot.busy { background: var(--busy); box-shadow: 0 0 8px var(--busy); }
+        .status-dot.offline { background: var(--offline); }
+
+        .agent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-weight: 500;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: -0.01em;
+        }
+
+        .agent-role {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .agent-actions {
+            display: flex;
+            gap: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .agent-item:hover .agent-actions {
+            opacity: 1;
+        }
+
+        .agent-action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .agent-action-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .agent-action-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .agent-action-btn.danger:hover {
+            color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Main Terminal Area */
+        .terminal-area {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            min-height: 0;
+        }
+
+        #terminalContent {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .terminal-header {
+            padding: 14px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .terminal-header-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .terminal-header-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .terminal-header-avatar svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .terminal-header-name {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .terminal-header-cwd {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+            margin-top: 2px;
+        }
+
+        .terminal-header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.online {
+            background: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+        .status-indicator.offline { background: var(--offline); }
+
+        .terminal-container {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+        }
+
+        #terminal {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Make xterm.js fill container */
+        #terminal .xterm {
+            height: 100%;
+            padding: 12px 16px;
+        }
+
+        #terminal .xterm-viewport {
+            overflow-y: auto !important;
+        }
+
+        #terminal .xterm-screen {
+            height: 100% !important;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 60px;
+            background: var(--bg-primary);
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .empty-state h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            margin-bottom: 28px;
+            max-width: 360px;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .icon-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .icon-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-elevated);
+            transform: translateY(-1px);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .icon-picker {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .icon-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .icon-option svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .icon-option:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .icon-option.selected {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        /* Legacy emoji picker support */
+        .emoji-picker {
+            display: none;
+        }
+
+        /* File Browser */
+        .file-browser {
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-top: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .file-browser-path {
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-subtle);
+            font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item:hover {
+            background: var(--bg-elevated);
+        }
+
+        .file-item-icon {
+            color: var(--text-muted);
+        }
+
+        .file-item-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .file-item-name {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .input-with-button {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-button input {
+            flex: 1;
+        }
+
+        .input-with-button button {
+            padding: 10px 14px;
+            white-space: nowrap;
+        }
+
+        /* Favorites */
+        .favorites-section {
+            margin-top: 12px;
+        }
+
+        .favorites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .favorites-header span {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-small {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-small:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .btn-small.btn-secondary {
+            background: transparent;
+        }
+
+        .btn-small.btn-secondary:hover {
+            background: var(--bg-elevated);
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .favorites-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            max-width: 100%;
+            border: 1px solid transparent;
+        }
+
+        .favorite-item:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border);
+        }
+
+        .favorite-item .fav-icon {
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .favorite-item .fav-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .favorite-item .fav-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-secondary);
+        }
+
+        .favorite-item .fav-remove {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            display: flex;
+            transition: all 0.15s;
+        }
+
+        .favorite-item .fav-remove svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .favorite-item .fav-remove:hover {
+            color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .browse-section {
+            margin-top: 10px;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">
+                    <i data-lucide="bot"></i>
+                </div>
+                <h1>Agent Chat</h1>
+                <span class="workspace-badge">Local</span>
+            </div>
+
+            <div class="agent-list" id="agentList">
+                <!-- Orchestrator section -->
+                <div class="orchestrator-section" id="orchestratorSection">
+                    <div class="section-label"><i data-lucide="crown" style="width:12px;height:12px;"></i> Orchestrator</div>
+                    <div id="orchestratorSlot">
+                        <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                            No orchestrator set
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workers section -->
+                <div class="workers-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div class="section-label">Workers</div>
+                        <button class="icon-btn" onclick="showCreateModal()" title="New Agent">
+                            <i data-lucide="plus"></i>
+                        </button>
+                    </div>
+                    <div id="workersList">
+                        <!-- Workers populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Area -->
+        <main class="terminal-area" id="terminalArea">
+            <div class="empty-state" id="emptyState">
+                <div class="empty-state-icon">
+                    <i data-lucide="terminal"></i>
+                </div>
+                <h2>No Agent Selected</h2>
+                <p>Create an agent to spawn an interactive Claude CLI terminal. Each agent runs in its own working directory.</p>
+                <button class="btn" onclick="showCreateModal()">
+                    <i data-lucide="plus"></i>
+                    Create Agent
+                </button>
+            </div>
+
+            <div id="terminalContent" class="hidden">
+                <header class="terminal-header">
+                    <div class="terminal-header-info">
+                        <div class="terminal-header-avatar" id="terminalAvatar">
+                            <i data-lucide="bot"></i>
+                        </div>
+                        <div>
+                            <div class="terminal-header-name" id="terminalName">Agent</div>
+                            <div class="terminal-header-cwd" id="terminalCwd">~/</div>
+                        </div>
+                    </div>
+                    <div class="terminal-header-status" id="terminalStatus">
+                        <div class="status-indicator offline"></div>
+                        <span>Disconnected</span>
+                    </div>
+                </header>
+                <div class="terminal-container">
+                    <div id="terminal"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Agent Modal -->
+    <div class="modal-overlay hidden" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Edit Agent</h2>
+                <button class="icon-btn" onclick="hideEditModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAgentId">
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="editAgentDisplayName" placeholder="e.g., Frontend Developer">
+                </div>
+                <div class="form-group">
+                    <label>Icon</label>
+                    <div class="icon-picker" id="editIconPicker"></div>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="editAgentModel">
+                        <option value="haiku">Haiku (Fast)</option>
+                        <option value="sonnet">Sonnet (Balanced)</option>
+                        <option value="opus">Opus (Powerful)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideEditModal()">Cancel</button>
+                <button class="btn" onclick="saveAgentEdit()">
+                    <i data-lucide="check"></i>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Agent Modal -->
+    <div class="modal-overlay hidden" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Create Agent</h2>
+                <button class="icon-btn" onclick="hideCreateModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="newAgentName" placeholder="e.g., frontend-dev">
+                </div>
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="newAgentDisplayName" placeholder="e.g., Frontend Developer">
+                </div>
+                <div class="form-group">
+                    <label>Working Directory *</label>
+                    <input type="text" id="newAgentCwd" placeholder="Enter path or select from favorites...">
+                    <div class="favorites-section">
+                        <div class="favorites-header">
+                            <span>Favorites</span>
+                            <button class="btn-small" type="button" onclick="addCurrentAsFavorite()">
+                                <i data-lucide="plus" style="width:10px;height:10px;"></i> Add
+                            </button>
+                        </div>
+                        <div class="favorites-list" id="favoritesList"></div>
+                    </div>
+                    <div class="browse-section">
+                        <button class="btn-small btn-secondary" type="button" onclick="toggleFileBrowser()">
+                            <i data-lucide="folder-open" style="width:12px;height:12px;"></i> Browse
+                        </button>
+                    </div>
+                    <div class="file-browser hidden" id="fileBrowser">
+                        <div class="file-browser-path" id="fileBrowserPath">Loading...</div>
+                        <div id="fileBrowserList"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Icon</label>
+                    <div class="icon-picker" id="iconPicker"></div>
+                    <div class="emoji-picker hidden" id="emojiPicker"></div>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="newAgentModel">
+                        <option value="haiku">Haiku (Fast)</option>
+                        <option value="sonnet" selected>Sonnet (Balanced)</option>
+                        <option value="opus">Opus (Powerful)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>System Prompt (optional)</label>
+                    <textarea id="newAgentPrompt" rows="3" placeholder="Additional instructions for Claude..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideCreateModal()">Cancel</button>
+                <button class="btn" onclick="createAgent()">
+                    <i data-lucide="plus"></i>
+                    Create
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // State
+        // =====================================================================
+        const state = {
+            agents: [],
+            currentAgent: null,
+            terminal: null,
+            fitAddon: null,
+            websocket: null,
+            selectedIcon: 'bot',
+            editingIcon: 'bot'
+        };
+
+        const ICONS = ['bot', 'cpu', 'code', 'terminal', 'database', 'cog', 'zap', 'sparkles', 'rocket', 'brain', 'circuit-board', 'bug', 'flask-conical', 'git-branch', 'layers', 'package', 'heart', 'heart-pulse', 'star', 'flame', 'ghost', 'cat', 'dog', 'bird'];
+        const WS_PORT = 8891;
+
+        // Default favorites - will be merged with user's
+        const DEFAULT_FAVORITES = [
+            { name: 'Home', path: '~', icon: 'home' },
+            { name: 'Downloads', path: '~/Downloads', icon: 'download' },
+            { name: 'Projects', path: '~/Downloads/personal-os-main/Projects', icon: 'folder' },
+        ];
+
+        // =====================================================================
+        // API Functions
+        // =====================================================================
+        async function api(endpoint, options = {}) {
+            const res = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+            return res.json();
+        }
+
+        async function fetchAgents() {
+            const data = await api('/api/agents');
+            state.agents = data.agents || [];
+            renderAgentList();
+        }
+
+        async function createAgentAPI(data) {
+            const result = await api('/api/agents', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            return result.agent;
+        }
+
+        async function deleteAgentAPI(agentId) {
+            await api(`/api/agents/${agentId}`, { method: 'DELETE' });
+        }
+
+        async function fetchDirectory(path = null) {
+            const endpoint = path ? `/api/browse?path=${encodeURIComponent(path)}` : '/api/browse';
+            return await api(endpoint);
+        }
+
+        // =====================================================================
+        // Terminal Management
+        // =====================================================================
+        function initTerminal() {
+            if (state.terminal) {
+                state.terminal.dispose();
+            }
+
+            state.terminal = new Terminal({
+                cursorBlink: true,
+                fontSize: 13,
+                fontFamily: "'SF Mono', Monaco, 'Fira Code', 'Cascadia Code', monospace",
+                scrollback: 10000,
+                convertEol: true,
+                theme: {
+                    background: '#0d1117',
+                    foreground: '#fafafa',
+                    cursor: '#a855f7',
+                    cursorAccent: '#0d1117',
+                    selectionBackground: 'rgba(168, 85, 247, 0.3)',
+                    black: '#161b22',
+                    red: '#ef4444',
+                    green: '#22c55e',
+                    yellow: '#eab308',
+                    blue: '#3b82f6',
+                    magenta: '#a855f7',
+                    cyan: '#06b6d4',
+                    white: '#fafafa',
+                    brightBlack: '#52525b',
+                    brightRed: '#f87171',
+                    brightGreen: '#4ade80',
+                    brightYellow: '#facc15',
+                    brightBlue: '#60a5fa',
+                    brightMagenta: '#c084fc',
+                    brightCyan: '#22d3ee',
+                    brightWhite: '#ffffff'
+                },
+                allowProposedApi: true
+            });
+
+            state.fitAddon = new FitAddon.FitAddon();
+            state.terminal.loadAddon(state.fitAddon);
+
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            state.terminal.loadAddon(webLinksAddon);
+
+            const container = document.getElementById('terminal');
+            container.innerHTML = '';
+            state.terminal.open(container);
+            state.fitAddon.fit();
+
+            // Handle terminal input
+            state.terminal.onData(data => {
+                if (state.websocket && state.websocket.readyState === WebSocket.OPEN) {
+                    state.websocket.send(data);
+                }
+            });
+
+            // Handle resize
+            window.addEventListener('resize', () => {
+                if (state.fitAddon) {
+                    state.fitAddon.fit();
+                    sendResize();
+                }
+            });
+
+            // Also fit when terminal container resizes
+            const resizeObserver = new ResizeObserver(() => {
+                if (state.fitAddon && state.terminal) {
+                    // Small delay to let DOM settle
+                    requestAnimationFrame(() => {
+                        state.fitAddon.fit();
+                        sendResize();
+                    });
+                }
+            });
+            resizeObserver.observe(container);
+            resizeObserver.observe(document.getElementById('terminalContent'));
+        }
+
+        function sendResize() {
+            if (state.websocket && state.websocket.readyState === WebSocket.OPEN && state.terminal) {
+                const rows = state.terminal.rows;
+                const cols = state.terminal.cols;
+                console.log(`Sending resize: ${cols}x${rows}`);
+                state.websocket.send(JSON.stringify({
+                    type: 'resize',
+                    rows: rows,
+                    cols: cols
+                }));
+            }
+        }
+
+        function connectWebSocket(agentId) {
+            // Close existing connection
+            if (state.websocket) {
+                state.websocket.close();
+            }
+
+            const wsUrl = `ws://localhost:${WS_PORT}/terminal/${agentId}`;
+            state.websocket = new WebSocket(wsUrl);
+
+            state.websocket.binaryType = 'arraybuffer';
+
+            state.websocket.onopen = () => {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+                // Send initial size after terminal is ready
+                setTimeout(() => {
+                    if (state.fitAddon && state.terminal) {
+                        state.fitAddon.fit();
+                        sendResize();
+                    }
+                }, 200);
+                // Send again after a bit in case of race condition
+                setTimeout(sendResize, 500);
+            };
+
+            state.websocket.onmessage = (event) => {
+                if (state.terminal) {
+                    if (event.data instanceof ArrayBuffer) {
+                        const text = new TextDecoder().decode(event.data);
+                        state.terminal.write(text);
+                    } else {
+                        state.terminal.write(event.data);
+                    }
+                }
+            };
+
+            state.websocket.onclose = () => {
+                console.log('WebSocket closed');
+                updateConnectionStatus(false);
+            };
+
+            state.websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+            };
+        }
+
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('terminalStatus');
+            if (connected) {
+                status.innerHTML = `
+                    <div class="status-indicator online"></div>
+                    <span>Connected</span>
+                `;
+            } else {
+                status.innerHTML = `
+                    <div class="status-indicator offline"></div>
+                    <span>Disconnected</span>
+                `;
+            }
+        }
+
+        // =====================================================================
+        // UI Rendering
+        // =====================================================================
+        function renderAgentList() {
+            const orchestratorSlot = document.getElementById('orchestratorSlot');
+            const workersList = document.getElementById('workersList');
+
+            // Separate orchestrator and workers
+            const orchestrator = state.agents.find(a => a.role === 'orchestrator');
+            const workers = state.agents.filter(a => a.role !== 'orchestrator');
+
+            // Render orchestrator
+            if (orchestrator) {
+                orchestratorSlot.innerHTML = '';
+                orchestratorSlot.appendChild(createAgentItem(orchestrator, true));
+            } else {
+                orchestratorSlot.innerHTML = `
+                    <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                        No orchestrator set
+                    </div>
+                `;
+            }
+
+            // Render workers
+            workersList.innerHTML = '';
+            if (workers.length === 0) {
+                workersList.innerHTML = `
+                    <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                        No workers yet
+                    </div>
+                `;
+            } else {
+                workers.forEach(agent => {
+                    workersList.appendChild(createAgentItem(agent, false));
+                });
+            }
+
+            // Re-render Lucide icons
+            lucide.createIcons();
+        }
+
+        function createAgentItem(agent, isOrchestrator) {
+            const item = document.createElement('div');
+            item.className = `agent-item ${state.currentAgent?.id === agent.id ? 'active' : ''} ${isOrchestrator ? 'orchestrator' : ''}`;
+
+            const roleLabel = isOrchestrator ? 'orchestrator' : (agent.model || 'sonnet');
+            const iconName = isOrchestrator ? 'crown' : (agent.icon || agent.emoji || 'bot');
+
+            item.innerHTML = `
+                <div class="agent-avatar">
+                    <i data-lucide="${iconName}"></i>
+                    <div class="status-dot ${agent.status || 'offline'}"></div>
+                </div>
+                <div class="agent-info">
+                    <div class="agent-name">${agent.display_name || agent.name}</div>
+                    <div class="agent-role">${roleLabel}</div>
+                </div>
+                <div class="agent-actions">
+                    <button class="agent-action-btn" onclick="event.stopPropagation(); showEditModal('${agent.id}')" title="Edit"><i data-lucide="pencil"></i></button>
+                    ${!isOrchestrator ? `<button class="agent-action-btn" onclick="event.stopPropagation(); promoteToOrchestrator('${agent.id}')" title="Promote to Orchestrator"><i data-lucide="crown"></i></button>` : ''}
+                    ${isOrchestrator ? `<button class="agent-action-btn" onclick="event.stopPropagation(); demoteOrchestrator('${agent.id}')" title="Demote to Worker"><i data-lucide="arrow-down"></i></button>` : ''}
+                    <button class="agent-action-btn danger" onclick="event.stopPropagation(); deleteAgent('${agent.id}')" title="Delete"><i data-lucide="x"></i></button>
+                </div>
+            `;
+
+            item.onclick = () => selectAgent(agent);
+            return item;
+        }
+
+        function renderIconPicker() {
+            const container = document.getElementById('iconPicker');
+            container.innerHTML = '';
+
+            ICONS.forEach(icon => {
+                const btn = document.createElement('button');
+                btn.className = `icon-option ${icon === state.selectedIcon ? 'selected' : ''}`;
+                btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+                btn.type = 'button';
+                btn.onclick = () => {
+                    container.querySelectorAll('.icon-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    state.selectedIcon = icon;
+                };
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        // Legacy support
+        function renderEmojiPicker() {
+            renderIconPicker();
+        }
+
+        // =====================================================================
+        // Agent Actions
+        // =====================================================================
+        function selectAgent(agent) {
+            state.currentAgent = agent;
+
+            // Update UI
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('terminalContent').classList.remove('hidden');
+
+            const iconName = agent.icon || agent.emoji || 'bot';
+            document.getElementById('terminalAvatar').innerHTML = `<i data-lucide="${iconName}"></i>`;
+            document.getElementById('terminalName').textContent = agent.display_name || agent.name;
+            document.getElementById('terminalCwd').textContent = agent.cwd;
+
+            renderAgentList();
+            lucide.createIcons();
+
+            // Initialize terminal if needed
+            if (!state.terminal) {
+                initTerminal();
+            } else {
+                // Clear terminal for new agent
+                state.terminal.clear();
+            }
+
+            // Connect to agent's terminal
+            connectWebSocket(agent.id);
+
+            // Focus terminal and ensure it's fitted
+            setTimeout(() => {
+                if (state.fitAddon) state.fitAddon.fit();
+                if (state.terminal) state.terminal.focus();
+                sendResize();
+            }, 100);
+        }
+
+        async function createAgent() {
+            const name = document.getElementById('newAgentName').value.trim();
+            const cwd = document.getElementById('newAgentCwd').value.trim();
+
+            if (!name || !cwd) {
+                alert('Name and working directory are required');
+                return;
+            }
+
+            try {
+                const agent = await createAgentAPI({
+                    name,
+                    display_name: document.getElementById('newAgentDisplayName').value.trim() || name,
+                    cwd,
+                    icon: state.selectedIcon,
+                    emoji: state.selectedIcon, // backwards compat
+                    model: document.getElementById('newAgentModel').value,
+                    system_prompt: document.getElementById('newAgentPrompt').value.trim() || null
+                });
+
+                hideCreateModal();
+                await fetchAgents();
+                selectAgent(agent);
+            } catch (err) {
+                alert('Failed to create agent: ' + err.message);
+            }
+        }
+
+        async function promoteToOrchestrator(agentId) {
+            // Demote current orchestrator first
+            const currentOrchestrator = state.agents.find(a => a.role === 'orchestrator');
+            if (currentOrchestrator) {
+                await api(`/api/agents/${currentOrchestrator.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ role: 'worker' })
+                });
+            }
+
+            // Promote the selected agent
+            await api(`/api/agents/${agentId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ role: 'orchestrator' })
+            });
+
+            await fetchAgents();
+        }
+
+        async function demoteOrchestrator(agentId) {
+            await api(`/api/agents/${agentId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ role: 'worker' })
+            });
+            await fetchAgents();
+        }
+
+        async function deleteAgent(agentId) {
+            const agent = state.agents.find(a => a.id === agentId);
+            if (!confirm(`Delete agent "${agent?.display_name || agent?.name}"?`)) {
+                return;
+            }
+
+            try {
+                await deleteAgentAPI(agentId);
+
+                if (state.currentAgent?.id === agentId) {
+                    state.currentAgent = null;
+                    if (state.websocket) {
+                        state.websocket.close();
+                    }
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    document.getElementById('terminalContent').classList.add('hidden');
+                }
+
+                await fetchAgents();
+            } catch (err) {
+                alert('Failed to delete agent: ' + err.message);
+            }
+        }
+
+        // =====================================================================
+        // Modal Functions
+        // =====================================================================
+        function showCreateModal() {
+            document.getElementById('createModal').classList.remove('hidden');
+            document.getElementById('newAgentName').value = '';
+            document.getElementById('newAgentDisplayName').value = '';
+            document.getElementById('newAgentCwd').value = '';
+            document.getElementById('newAgentPrompt').value = '';
+            document.getElementById('fileBrowser').classList.add('hidden');
+            state.selectedIcon = 'bot';
+            renderIconPicker();
+            renderFavorites();
+            lucide.createIcons();
+        }
+
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.add('hidden');
+            document.getElementById('fileBrowser').classList.add('hidden');
+        }
+
+        function showEditModal(agentId) {
+            const agent = state.agents.find(a => a.id === agentId);
+            if (!agent) return;
+
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editAgentId').value = agentId;
+            document.getElementById('editAgentDisplayName').value = agent.display_name || agent.name;
+            document.getElementById('editAgentModel').value = agent.model || 'sonnet';
+
+            state.editingIcon = agent.icon || agent.emoji || 'bot';
+            renderEditIconPicker();
+            lucide.createIcons();
+        }
+
+        function hideEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        function renderEditIconPicker() {
+            const container = document.getElementById('editIconPicker');
+            container.innerHTML = '';
+
+            ICONS.forEach(icon => {
+                const btn = document.createElement('button');
+                btn.className = `icon-option ${icon === state.editingIcon ? 'selected' : ''}`;
+                btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+                btn.type = 'button';
+                btn.onclick = () => {
+                    container.querySelectorAll('.icon-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    state.editingIcon = icon;
+                };
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        async function saveAgentEdit() {
+            const agentId = document.getElementById('editAgentId').value;
+            const displayName = document.getElementById('editAgentDisplayName').value.trim();
+            const model = document.getElementById('editAgentModel').value;
+
+            try {
+                await api(`/api/agents/${agentId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        display_name: displayName,
+                        icon: state.editingIcon,
+                        emoji: state.editingIcon,
+                        model: model
+                    })
+                });
+
+                hideEditModal();
+                await fetchAgents();
+
+                // Update current agent if it's the one we edited
+                if (state.currentAgent?.id === agentId) {
+                    const updated = state.agents.find(a => a.id === agentId);
+                    if (updated) selectAgent(updated);
+                }
+            } catch (err) {
+                alert('Failed to update agent: ' + err.message);
+            }
+        }
+
+        // =====================================================================
+        // Favorites
+        // =====================================================================
+        function getFavorites() {
+            const stored = localStorage.getItem('agent-chat-favorites');
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch {
+                    return [...DEFAULT_FAVORITES];
+                }
+            }
+            return [...DEFAULT_FAVORITES];
+        }
+
+        function saveFavorites(favorites) {
+            localStorage.setItem('agent-chat-favorites', JSON.stringify(favorites));
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('favoritesList');
+            const favorites = getFavorites();
+
+            container.innerHTML = '';
+
+            favorites.forEach((fav, index) => {
+                const item = document.createElement('div');
+                item.className = 'favorite-item';
+                const iconName = fav.icon || 'folder';
+                item.innerHTML = `
+                    <span class="fav-icon"><i data-lucide="${iconName}"></i></span>
+                    <span class="fav-name">${fav.name}</span>
+                    <span class="fav-remove" onclick="event.stopPropagation(); removeFavorite(${index})" title="Remove"><i data-lucide="x"></i></span>
+                `;
+                item.onclick = () => selectFavorite(fav.path);
+                container.appendChild(item);
+            });
+
+            if (favorites.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">No favorites yet</div>';
+            }
+
+            lucide.createIcons();
+        }
+
+        function selectFavorite(path) {
+            // Expand ~ to home directory
+            document.getElementById('newAgentCwd').value = path;
+            // Also trigger a browse to expand the path
+            expandPath(path);
+        }
+
+        async function expandPath(path) {
+            try {
+                const data = await fetchDirectory(path);
+                document.getElementById('newAgentCwd').value = data.current;
+            } catch {
+                // Keep the path as-is if expansion fails
+            }
+        }
+
+        function addCurrentAsFavorite() {
+            const path = document.getElementById('newAgentCwd').value.trim();
+            if (!path) {
+                alert('Enter a path first');
+                return;
+            }
+
+            const name = prompt('Name for this favorite:', path.split('/').pop() || 'Favorite');
+            if (!name) return;
+
+            const favorites = getFavorites();
+
+            // Check for duplicates
+            if (favorites.some(f => f.path === path)) {
+                alert('This path is already in favorites');
+                return;
+            }
+
+            favorites.push({ name, path, icon: 'star' });
+            saveFavorites(favorites);
+            renderFavorites();
+        }
+
+        function removeFavorite(index) {
+            const favorites = getFavorites();
+            favorites.splice(index, 1);
+            saveFavorites(favorites);
+            renderFavorites();
+        }
+
+        // =====================================================================
+        // File Browser
+        // =====================================================================
+        async function toggleFileBrowser() {
+            const browser = document.getElementById('fileBrowser');
+            const isHidden = browser.classList.contains('hidden');
+
+            if (isHidden) {
+                browser.classList.remove('hidden');
+                const currentPath = document.getElementById('newAgentCwd').value || null;
+                await loadDirectory(currentPath);
+            } else {
+                browser.classList.add('hidden');
+            }
+        }
+
+        async function loadDirectory(path) {
+            const list = document.getElementById('fileBrowserList');
+            const pathDisplay = document.getElementById('fileBrowserPath');
+
+            list.innerHTML = '<div style="padding: 12px; color: var(--text-muted);">Loading...</div>';
+
+            try {
+                const data = await fetchDirectory(path);
+                pathDisplay.textContent = data.current;
+
+                list.innerHTML = '';
+
+                // Select button
+                const selectBtn = document.createElement('div');
+                selectBtn.className = 'file-item';
+                selectBtn.style.background = 'var(--accent-glow)';
+                selectBtn.innerHTML = `
+                    <span class="file-item-icon"><i data-lucide="check"></i></span>
+                    <span class="file-item-name" style="color: var(--accent); font-weight: 500;">Select this folder</span>
+                `;
+                selectBtn.onclick = () => {
+                    document.getElementById('newAgentCwd').value = data.current;
+                    document.getElementById('fileBrowser').classList.add('hidden');
+                };
+                list.appendChild(selectBtn);
+
+                // Directories
+                data.items.forEach(item => {
+                    if (item.is_dir) {
+                        const div = document.createElement('div');
+                        div.className = 'file-item';
+                        const iconName = item.name === '..' ? 'arrow-up' : 'folder';
+                        div.innerHTML = `
+                            <span class="file-item-icon"><i data-lucide="${iconName}"></i></span>
+                            <span class="file-item-name">${item.name}</span>
+                        `;
+                        div.onclick = () => loadDirectory(item.path);
+                        list.appendChild(div);
+                    }
+                });
+
+                lucide.createIcons();
+            } catch (err) {
+                list.innerHTML = `<div style="padding: 12px; color: var(--error);">Error loading directory</div>`;
+            }
+        }
+
+        // =====================================================================
+        // Initialize
+        // =====================================================================
+        async function init() {
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            await fetchAgents();
+
+            // Periodically refresh agent list
+            setInterval(fetchAgents, 5000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

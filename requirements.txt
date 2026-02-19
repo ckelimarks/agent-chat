@@ -1,0 +1,2 @@
+# Agent Chat Requirements
+websockets>=12.0

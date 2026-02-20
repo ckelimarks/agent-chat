@@ -94,10 +94,11 @@ async def handle_terminal(websocket):
         # Only track "working" activity when output is part of a user-initiated turn.
         if agent_waiting_for_response.get(agent_id, False):
             last_output_time[agent_id] = time.time()
-            agent_was_busy[agent_id] = True
-            db.set_agent_status(agent_id, 'busy')
-            # Clear any existing notification when output resumes
-            db.clear_notification(agent_id)
+            # Only update db if status is changing (avoid hammering db on every character)
+            if not agent_was_busy.get(agent_id, False):
+                agent_was_busy[agent_id] = True
+                db.set_agent_status(agent_id, 'busy')
+                db.clear_notification(agent_id)
 
         # Check for bell character (permission prompt) - only during user-initiated turns
         if agent_waiting_for_response.get(agent_id, False):
@@ -149,6 +150,8 @@ async def handle_terminal(websocket):
                 # JSON command
                 try:
                     cmd = json.loads(message)
+                    if not isinstance(cmd, dict):
+                        raise ValueError("Not a command dict")
                     if cmd.get('type') == 'resize':
                         rows = cmd.get('rows', 24)
                         cols = cmd.get('cols', 80)
@@ -210,7 +213,7 @@ async def handle_terminal(websocket):
                         if data and ('\r' in data or '\n' in data):
                             agent_waiting_for_response[agent_id] = True
                         pty_mgr.write(agent_id, data.encode())
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, ValueError):
                     # Treat as raw input - only mark as waiting when Enter is pressed
                     if message and ('\r' in message or '\n' in message):
                         agent_waiting_for_response[agent_id] = True

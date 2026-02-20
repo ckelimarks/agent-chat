@@ -31,6 +31,8 @@ class PTYSession:
     output_callback: Optional[Callable[[bytes], None]] = None
     scrollback: bytes = field(default_factory=bytes)
     max_scrollback: int = 50000  # ~50KB of scrollback
+    rows: int = 24
+    cols: int = 80
 
 
 class PTYManager:
@@ -98,7 +100,9 @@ class PTYManager:
                     fd=fd,
                     cwd=cwd,
                     model=model,
-                    output_callback=output_callback
+                    output_callback=output_callback,
+                    rows=initial_rows,
+                    cols=initial_cols
                 )
                 self.sessions[agent_id] = session
 
@@ -172,6 +176,8 @@ class PTYManager:
             try:
                 winsize = struct.pack("HHHH", rows, cols, 0, 0)
                 fcntl.ioctl(session.fd, termios.TIOCSWINSZ, winsize)
+                session.rows = rows
+                session.cols = cols
                 return True
             except OSError as e:
                 logger.error(f"Resize error for agent {agent_id}: {e}")
@@ -184,6 +190,14 @@ class PTYManager:
             if session:
                 return session.scrollback
             return b""
+
+    def get_scrollback_info(self, agent_id: str) -> tuple[bytes, int, int]:
+        """Get scrollback buffer plus the terminal size it was captured with."""
+        with self.lock:
+            session = self.sessions.get(agent_id)
+            if session:
+                return session.scrollback, session.rows, session.cols
+            return b"", 24, 80
 
     def set_output_callback(self, agent_id: str, callback: Optional[Callable[[bytes], None]]):
         """Set the output callback for a session."""

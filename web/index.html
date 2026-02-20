@@ -1108,7 +1108,7 @@
             editingIcon: 'bot'
         };
 
-        const ICONS = ['bot', 'cpu', 'code', 'terminal', 'database', 'cog', 'zap', 'sparkles', 'rocket', 'brain', 'circuit-board', 'bug', 'flask-conical', 'git-branch', 'layers', 'package', 'heart', 'heart-pulse', 'star', 'flame', 'ghost', 'cat', 'dog', 'bird'];
+        const ICONS = ['bot', 'cpu', 'code', 'terminal', 'database', 'cog', 'zap', 'sparkles', 'rocket', 'brain', 'circuit-board', 'bug', 'flask-conical', 'git-branch', 'layers', 'package', 'heart', 'heart-pulse', 'star', 'flame', 'ghost', 'cat', 'dog', 'bird', 'dollar-sign', 'wallet', 'piggy-bank', 'briefcase', 'graduation-cap', 'music', 'headphones', 'camera', 'pen-tool', 'palette', 'compass', 'anchor', 'crown', 'gem', 'skull', 'smile', 'om'];
         const WS_PORT = 8891;
 
         // Default favorites - will be merged with user's
@@ -1277,15 +1277,13 @@
             state.websocket.onopen = () => {
                 console.log('WebSocket connected');
                 updateConnectionStatus(true);
-                // Send initial size after terminal is ready
-                setTimeout(() => {
-                    if (state.fitAddon && state.terminal) {
-                        state.fitAddon.fit();
-                        sendResize();
-                    }
-                }, 200);
+                // Send resize IMMEDIATELY so server knows size before sending scrollback
+                if (state.fitAddon && state.terminal) {
+                    state.fitAddon.fit();
+                    sendResize();
+                }
                 // Send again after a bit in case of race condition
-                setTimeout(sendResize, 500);
+                setTimeout(sendResize, 200);
             };
 
             state.websocket.onmessage = (event) => {
@@ -1489,8 +1487,8 @@
             if (!state.terminal) {
                 initTerminal();
             } else {
-                // Clear terminal for new agent
-                state.terminal.clear();
+                // Reset terminal for new agent (clears state + content)
+                state.terminal.reset();
             }
 
             // Connect to agent's terminal

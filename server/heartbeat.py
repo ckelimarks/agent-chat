@@ -146,15 +146,14 @@ def get_worker_system_prompt() -> str:
     """Generate system prompt for workers (activity is now auto-tracked via hooks)."""
     return """## Multi-Agent System
 
-You are a worker agent. Your activity is automatically monitored by an orchestrator.
-
-**For significant milestones**, you can optionally emit a status summary:
+You're monitored by an orchestrator. Emit a brief REPORT when you:
+- Complete a significant task
+- Hit a blocker
+- Make a key decision
 
 ```json
-{"type": "REPORT", "summary": "Completed X", "progress": "2/5", "blockers": [], "key_decisions": ["Chose A over B"]}
-```
-
-This is optional - the system tracks your tool usage automatically."""
+{"type": "REPORT", "summary": "...", "blockers": [], "key_decisions": []}
+```"""
 
 
 def get_orchestrator_system_prompt() -> str:

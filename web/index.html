@@ -1,0 +1,2902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sutra.ai</title>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Fraunces Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+    <!-- xterm.js -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #09090b;
+            --bg-secondary: #0c0c0e;
+            --bg-tertiary: #18181b;
+            --bg-elevated: #27272a;
+            --accent: #a855f7;
+            --accent-hover: #c084fc;
+            --accent-glow: rgba(168, 85, 247, 0.15);
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-muted: #52525b;
+            --border: #27272a;
+            --border-subtle: #1f1f23;
+            --success: #22c55e;
+            --warning: #eab308;
+            --error: #ef4444;
+            --online: #22c55e;
+            --busy: #eab308;
+            --offline: #52525b;
+            --mobile-vh: 100vh;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: var(--mobile-vh);
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Layout */
+        .app {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: var(--mobile-vh);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .sidebar-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-header .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .sidebar-header h1 {
+            font-family: 'Fraunces', serif;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            font-optical-sizing: auto;
+        }
+
+        .workspace-badge {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: auto;
+        }
+
+        /* Agent List */
+        .agent-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .agent-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .agent-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .agent-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .agent-item.active {
+            background: var(--accent-glow);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        /* Orchestrator styling */
+        .orchestrator-section {
+            padding: 0 0 12px 0;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .orchestrator-section .section-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            padding: 4px 0;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .agent-item.orchestrator {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+
+        .agent-item.orchestrator:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+
+        .agent-item.orchestrator .agent-status {
+            color: var(--accent);
+        }
+
+        .workers-section {
+            padding: 0;
+        }
+
+        .workers-section .section-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            padding: 4px 0;
+            margin-bottom: 8px;
+        }
+
+        .agent-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            color: var(--text-secondary);
+        }
+
+        .agent-avatar svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .status-dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-secondary);
+        }
+
+        .status-dot.offline { background: #666; }
+
+        /* Pin/Focus badge */
+        .pin-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #eab308 0%, #f59e0b 100%);
+            border-radius: 50%;
+            border: 2px solid var(--bg-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.2s ease;
+        }
+
+        .pin-badge:hover {
+            transform: scale(1.1);
+        }
+
+        .pin-badge svg {
+            width: 10px;
+            height: 10px;
+        }
+
+        /* Pinned agent styling */
+        .agent-item.pinned {
+            background: rgba(234, 179, 8, 0.08);
+            border-color: rgba(234, 179, 8, 0.2);
+        }
+
+        .agent-item.pinned:hover {
+            background: rgba(234, 179, 8, 0.12);
+        }
+
+        .agent-avatar {
+            cursor: pointer;
+        }
+
+        /* ============ AGENT STATES ============ */
+
+        /* Idle - gray dot */
+        .agent-item.state-idle .status-dot {
+            background: #666;
+        }
+
+        /* Working - blue fading border + row */
+        .agent-item.state-working .status-dot {
+            background: #3b82f6;
+        }
+
+        .agent-item.state-working .agent-avatar {
+            border: 2px solid #3b82f6;
+            animation: border-fade 2s ease-in-out infinite;
+        }
+
+        .agent-item.state-working {
+            animation: row-fade 2s ease-in-out infinite;
+        }
+
+        .agent-item.state-working .agent-status {
+            color: #3b82f6;
+        }
+
+        /* Attention - orange dot + pulsing badge */
+        .agent-item.state-attention .status-dot {
+            background: #f97316;
+        }
+
+        .agent-item.state-attention .agent-status {
+            color: #f97316;
+        }
+
+        .agent-item.state-attention .notification-badge {
+            background: #f97316;
+            animation: pulse-orange 1s ease-in-out infinite;
+        }
+
+        /* Done - green dot + badge */
+        .agent-item.state-done .status-dot {
+            background: #22c55e;
+        }
+
+        .agent-item.state-done .agent-status {
+            color: #22c55e;
+        }
+
+        .agent-item.state-done .notification-badge {
+            background: #22c55e;
+        }
+
+        /* Notification badge base */
+        .notification-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-left: 4px;
+        }
+
+        /* ============ ANIMATIONS ============ */
+
+        @keyframes border-fade {
+            0%, 100% { border-color: #3b82f6; }
+            50% { border-color: #3b82f620; }
+        }
+
+        @keyframes row-fade {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-orange {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.6); }
+            70% { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
+        }
+
+        .agent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .agent-name {
+            font-weight: 500;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            letter-spacing: -0.01em;
+        }
+
+        .agent-status {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .agent-actions {
+            position: absolute;
+            right: 8px;
+            display: flex;
+            gap: 2px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            background: inherit;
+            padding-left: 4px;
+        }
+
+        .agent-item:hover .agent-actions {
+            opacity: 1;
+        }
+
+        .agent-action-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .agent-action-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .agent-action-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .agent-action-btn.danger:hover {
+            color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Main Terminal Area */
+        .terminal-area {
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+            min-height: 0;
+        }
+
+        #terminalContent {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .terminal-header {
+            padding: 14px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .terminal-header-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .terminal-header-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+        }
+
+        .terminal-header-avatar svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .terminal-header-name {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .terminal-header-cwd {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+            margin-top: 2px;
+        }
+
+        .terminal-header-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-muted);
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .terminal-header-status:hover {
+            background: var(--bg-secondary);
+        }
+
+        .terminal-mobile-actions {
+            display: none;
+            gap: 8px;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .mobile-chip {
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+        }
+
+        .mobile-chip.active {
+            color: var(--text-primary);
+            border-color: rgba(168, 85, 247, 0.45);
+            background: rgba(168, 85, 247, 0.16);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.online {
+            background: var(--online);
+            box-shadow: 0 0 8px var(--online);
+        }
+        .status-indicator.offline { background: var(--offline); }
+
+        .terminal-container {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #terminal {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            touch-action: pan-y;
+        }
+
+        /* Make xterm.js fill container */
+        #terminal .xterm {
+            height: 100%;
+            padding: 12px 16px;
+        }
+
+        #terminal .xterm-viewport {
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Simplified mobile terminal behavior: native scrolling + text selection */
+        @media (max-width: 768px) {
+            #terminal {
+                touch-action: pan-y;
+            }
+
+            #terminal .xterm-viewport {
+                touch-action: pan-y !important;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            #terminal .xterm-screen {
+                touch-action: auto !important;
+            }
+
+            /* Allow xterm.js to handle its own touch events for paste/selection */
+            #terminal .xterm-helper-textarea {
+                touch-action: auto !important;
+                -webkit-user-select: text !important;
+                user-select: text !important;
+                -webkit-touch-callout: default !important;
+            }
+        }
+
+        #terminal .xterm-screen {
+            height: 100% !important;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 60px;
+            background: var(--bg-primary);
+            position: relative;
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon svg {
+            width: 36px;
+            height: 36px;
+        }
+
+        .empty-state h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+            margin-bottom: 28px;
+            max-width: 360px;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        /* Buttons */
+        .icon-btn {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .icon-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-elevated);
+            transform: translateY(-1px);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 480px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .icon-picker {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .icon-option {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-tertiary);
+            border: 2px solid transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            color: var(--text-secondary);
+        }
+
+        .icon-option svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .icon-option:hover {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+        }
+
+        .icon-option.selected {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        /* Legacy emoji picker support */
+        .emoji-picker {
+            display: none;
+        }
+
+        /* File Browser */
+        .file-browser {
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-top: 10px;
+            border: 1px solid var(--border);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .file-browser-path {
+            padding: 10px 14px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-subtle);
+            font-family: 'SF Mono', Monaco, 'Fira Code', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.15s;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item:hover {
+            background: var(--bg-elevated);
+        }
+
+        .file-item-icon {
+            color: var(--text-muted);
+        }
+
+        .file-item-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .file-item-name {
+            flex: 1;
+            font-size: 13px;
+        }
+
+        .input-with-button {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-button input {
+            flex: 1;
+        }
+
+        .input-with-button button {
+            padding: 10px 14px;
+            white-space: nowrap;
+        }
+
+        /* Favorites */
+        .favorites-section {
+            margin-top: 12px;
+        }
+
+        .favorites-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .favorites-header span {
+            font-size: 10px;
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .btn-small {
+            background: var(--bg-elevated);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .btn-small:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .btn-small.btn-secondary {
+            background: transparent;
+        }
+
+        .btn-small.btn-secondary:hover {
+            background: var(--bg-elevated);
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .favorites-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .favorite-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-tertiary);
+            padding: 7px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            max-width: 100%;
+            border: 1px solid transparent;
+        }
+
+        .favorite-item:hover {
+            background: var(--bg-elevated);
+            border-color: var(--border);
+        }
+
+        .favorite-item .fav-icon {
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .favorite-item .fav-icon svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .favorite-item .fav-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text-secondary);
+        }
+
+        .favorite-item .fav-remove {
+            flex-shrink: 0;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            display: flex;
+            transition: all 0.15s;
+        }
+
+        .favorite-item .fav-remove svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .favorite-item .fav-remove:hover {
+            color: var(--error);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .browse-section {
+            margin-top: 10px;
+        }
+
+        /* Hidden */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Mobile hamburger button */
+        .mobile-menu-btn {
+            display: none;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+        .mobile-menu-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .mobile-menu-btn svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .mobile-paste-btn {
+            display: none;
+        }
+
+        /* Sidebar overlay for mobile */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 49;
+        }
+
+        /* ============ MOBILE RESPONSIVE ============ */
+        @media (max-width: 768px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 280px;
+                z-index: 50;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .sidebar-overlay.visible {
+                display: block;
+            }
+
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .mobile-paste-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .terminal-header {
+                padding: 12px 16px;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 10;
+                flex-wrap: wrap;
+                gap: 8px;
+                transition: transform 0.2s ease;
+            }
+
+            .terminal-container {
+                padding-top: 70px;
+            }
+
+            body.keyboard-open .terminal-header {
+                transform: translateY(-100%);
+            }
+
+            body.keyboard-open .terminal-container {
+                padding-top: 0;
+            }
+
+            .terminal-header-info {
+                gap: 10px;
+                min-width: 0;
+                flex: 1;
+            }
+
+            .terminal-header-avatar {
+                width: 32px;
+                height: 32px;
+            }
+
+            .terminal-header-name {
+                font-size: 13px;
+            }
+
+            .terminal-header-cwd {
+                font-size: 10px;
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .terminal-header-status {
+                padding: 4px 8px;
+                font-size: 11px;
+                margin-left: auto;
+            }
+
+
+            .empty-state {
+                padding: 40px 20px;
+            }
+
+            .empty-state-icon {
+                width: 60px;
+                height: 60px;
+            }
+
+            .empty-state h2 {
+                font-size: 16px;
+            }
+
+            .empty-state p {
+                font-size: 12px;
+            }
+
+            /* Modal adjustments */
+            .modal {
+                width: 95%;
+                max-height: 85vh;
+            }
+
+            .modal-body {
+                padding: 16px;
+            }
+
+            .icon-picker {
+                max-height: 120px;
+                overflow-y: auto;
+            }
+
+            body.keyboard-open .terminal-header-status {
+                display: none;
+            }
+        }
+
+        .touch-debug-overlay {
+            position: fixed;
+            right: 10px;
+            bottom: 10px;
+            z-index: 9999;
+            max-width: 88vw;
+            padding: 8px 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #d1fae5;
+            border: 1px solid rgba(209, 250, 229, 0.25);
+            font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            white-space: pre-wrap;
+            pointer-events: none;
+        }
+
+        /* Canvas split-screen */
+        .terminal-area.canvas-active {
+            display: flex;
+            flex-direction: row;
+            gap: 0;
+            --canvas-split: 0.5;
+        }
+
+        .terminal-area.canvas-active #terminalContent {
+            flex: none;
+            width: calc(var(--canvas-split) * 100% - 2px);
+            min-width: 250px;
+            max-width: calc(100% - 254px);
+        }
+
+        .canvas-resize-handle {
+            width: 4px;
+            background: var(--border-subtle);
+            cursor: col-resize;
+            position: relative;
+            transition: background 0.2s;
+            flex-shrink: 0;
+        }
+
+        .canvas-resize-handle:hover,
+        .canvas-resize-handle.dragging {
+            background: var(--accent);
+        }
+
+        .canvas-resize-handle::after {
+            content: '';
+            position: absolute;
+            left: -4px;
+            right: -4px;
+            top: 0;
+            bottom: 0;
+        }
+
+        .canvas-panel {
+            background: var(--bg-primary);
+            border-left: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .canvas-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--bg-secondary);
+        }
+
+        .canvas-header-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .canvas-header-actions {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .canvas-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .canvas-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }
+
+        .canvas-btn-active {
+            background: var(--accent-glow);
+            color: var(--accent);
+        }
+
+        @media (max-width: 768px) {
+            .terminal-area.canvas-active {
+                flex-direction: column;
+            }
+
+            .canvas-resize-handle {
+                display: none;
+            }
+
+            .canvas-panel {
+                border-left: none;
+                border-top: 1px solid var(--border-subtle);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="app">
+        <!-- Mobile sidebar overlay -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-icon">
+                    <span style="font-size: 20px;">ॐ</span>
+                </div>
+                <h1>sutra</h1>
+                <span class="workspace-badge">Local</span>
+            </div>
+
+            <div class="agent-list" id="agentList">
+                <!-- Orchestrator section -->
+                <div class="orchestrator-section" id="orchestratorSection">
+                    <div class="section-label"><i data-lucide="crown" style="width:12px;height:12px;"></i> Orchestrator</div>
+                    <div id="orchestratorSlot">
+                        <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                            No orchestrator set
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Workers section -->
+                <div class="workers-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div class="section-label">Workers</div>
+                        <button class="icon-btn" onclick="showCreateModal()" title="New Agent">
+                            <i data-lucide="plus"></i>
+                        </button>
+                    </div>
+                    <div id="workersList">
+                        <!-- Workers populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Area -->
+        <main class="terminal-area" id="terminalArea">
+            <div class="empty-state" id="emptyState">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()" title="Menu" style="position: absolute; top: 16px; left: 16px;">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="empty-state-icon">
+                    <i data-lucide="terminal"></i>
+                </div>
+                <h2>No Agent Selected</h2>
+                <p>Create an agent to spawn an interactive Claude CLI terminal. Each agent runs in its own working directory.</p>
+                <button class="btn" onclick="showCreateModal()">
+                    <i data-lucide="plus"></i>
+                    Create Agent
+                </button>
+            </div>
+
+            <div id="terminalContent" class="hidden">
+                <header class="terminal-header">
+                    <div class="terminal-header-info">
+                        <button class="mobile-menu-btn" onclick="toggleSidebar()" title="Menu">
+                            <i data-lucide="menu"></i>
+                        </button>
+                        <div class="terminal-header-avatar" id="terminalAvatar">
+                            <i data-lucide="bot"></i>
+                        </div>
+                        <div>
+                            <div class="terminal-header-name" id="terminalName">Agent</div>
+                            <div class="terminal-header-cwd" id="terminalCwd">~/</div>
+                        </div>
+                    </div>
+                    <div class="terminal-header-status" id="terminalStatus">
+                        <div class="status-indicator offline"></div>
+                        <span>Disconnected</span>
+                    </div>
+                    <button class="icon-btn mobile-paste-btn" onclick="pasteFromClipboard()" title="Paste">
+                        <i data-lucide="clipboard-paste"></i>
+                    </button>
+                    <button class="icon-btn" id="canvasBtn" onclick="toggleCanvas()" title="Toggle Canvas" style="margin-left: 8px;">
+                        <i data-lucide="eye"></i>
+                    </button>
+                    <button class="icon-btn" onclick="showSettingsModal()" title="Settings" style="margin-left: 8px;">
+                        <i data-lucide="settings"></i>
+                    </button>
+                </header>
+                <div class="terminal-container">
+                    <div id="terminal"></div>
+                </div>
+            </div>
+
+            <!-- Canvas Resize Handle -->
+            <div class="canvas-resize-handle hidden" id="canvasResizeHandle"></div>
+
+            <!-- Canvas Panel -->
+            <div class="canvas-panel hidden" id="canvasPanel">
+                <div class="canvas-header">
+                    <div class="canvas-header-title">
+                        <i data-lucide="eye"></i>
+                        <span>Canvas</span>
+                    </div>
+                    <div class="canvas-header-actions">
+                        <button class="icon-btn" onclick="openCanvasInNewTab()" title="Open in New Tab">
+                            <i data-lucide="external-link"></i>
+                        </button>
+                        <button class="icon-btn" id="closeCanvasBtn" onclick="toggleCanvas()" title="Close Canvas">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="canvas-content">
+                    <iframe id="canvasFrame" class="canvas-iframe"></iframe>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Agent Modal -->
+    <div class="modal-overlay hidden" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Edit Agent</h2>
+                <button class="icon-btn" onclick="hideEditModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editAgentId">
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="editAgentDisplayName" placeholder="e.g., Frontend Developer">
+                </div>
+                <div class="form-group">
+                    <label>Icon</label>
+                    <div class="icon-picker" id="editIconPicker"></div>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="editAgentModel">
+                        <option value="haiku">Haiku (Fast)</option>
+                        <option value="sonnet">Sonnet (Balanced)</option>
+                        <option value="opus">Opus (Powerful)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideEditModal()">Cancel</button>
+                <button class="btn" onclick="saveAgentEdit()">
+                    <i data-lucide="check"></i>
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Agent Modal -->
+    <div class="modal-overlay hidden" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Create Agent</h2>
+                <button class="icon-btn" onclick="hideCreateModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="newAgentName" placeholder="e.g., frontend-dev">
+                </div>
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <input type="text" id="newAgentDisplayName" placeholder="e.g., Frontend Developer">
+                </div>
+                <div class="form-group">
+                    <label>Working Directory *</label>
+                    <input type="text" id="newAgentCwd" placeholder="Enter path or select from favorites...">
+                    <div class="favorites-section">
+                        <div class="favorites-header">
+                            <span>Favorites</span>
+                            <button class="btn-small" type="button" onclick="addCurrentAsFavorite()">
+                                <i data-lucide="plus" style="width:10px;height:10px;"></i> Add
+                            </button>
+                        </div>
+                        <div class="favorites-list" id="favoritesList"></div>
+                    </div>
+                    <div class="browse-section">
+                        <button class="btn-small btn-secondary" type="button" onclick="toggleFileBrowser()">
+                            <i data-lucide="folder-open" style="width:12px;height:12px;"></i> Browse
+                        </button>
+                    </div>
+                    <div class="file-browser hidden" id="fileBrowser">
+                        <div class="file-browser-path" id="fileBrowserPath">Loading...</div>
+                        <div id="fileBrowserList"></div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Icon</label>
+                    <div class="icon-picker" id="iconPicker"></div>
+                    <div class="emoji-picker hidden" id="emojiPicker"></div>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="newAgentModel">
+                        <option value="haiku">Haiku (Fast)</option>
+                        <option value="sonnet" selected>Sonnet (Balanced)</option>
+                        <option value="opus">Opus (Powerful)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>System Prompt (optional)</label>
+                    <textarea id="newAgentPrompt" rows="3" placeholder="Additional instructions for Claude..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hideCreateModal()">Cancel</button>
+                <button class="btn" onclick="createAgent()">
+                    <i data-lucide="plus"></i>
+                    Create
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay hidden" id="settingsModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="icon-btn" onclick="hideSettingsModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Orchestrator Check-in</label>
+                    <select id="settingsCronInterval" onchange="updateCronSettings()">
+                        <option value="0">Disabled</option>
+                        <option value="60">Every 1 minute</option>
+                        <option value="300" selected>Every 5 minutes</option>
+                        <option value="600">Every 10 minutes</option>
+                        <option value="1800">Every 30 minutes</option>
+                        <option value="3600">Every 1 hour</option>
+                    </select>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                        When enabled, the orchestrator will periodically check in on worker status and share observations.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="hideSettingsModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Paste Modal (fallback when Clipboard API is blocked) -->
+    <div class="modal-overlay hidden" id="pasteModal">
+        <div class="modal" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2>Paste into Terminal</h2>
+                <button class="icon-btn" onclick="hidePasteModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 10px;">
+                    Clipboard access is blocked in this browser session. Paste below, then send.
+                </p>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <textarea id="pasteFallbackInput" rows="7" placeholder="Long-press here and tap Paste"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="hidePasteModal()">Cancel</button>
+                <button class="btn" onclick="submitPasteFallback()">
+                    <i data-lucide="send"></i>
+                    Send to Terminal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // State
+        // =====================================================================
+        const state = {
+            agents: [],
+            currentAgent: null,
+            terminal: null,
+            fitAddon: null,
+            websocket: null,
+            selectedIcon: 'bot',
+            editingIcon: 'bot',
+            sidebarOpen: false,
+            touchDebugOverlay: null,
+            mobileViewportBound: false,
+            mobileTerminalCleanup: null,
+            terminalResizeObserver: null,
+            terminalWindowResizeHandler: null,
+            settings: {}
+        };
+
+        // =====================================================================
+        // Pinned Agents Management
+        // =====================================================================
+        function getPinnedAgents() {
+            const pinned = localStorage.getItem('pinnedAgents');
+            return pinned ? JSON.parse(pinned) : [];
+        }
+
+        function isPinned(agentId) {
+            return getPinnedAgents().includes(agentId);
+        }
+
+        function togglePin(agentId, event) {
+            event.stopPropagation(); // Don't trigger agent selection
+            const pinned = getPinnedAgents();
+            const index = pinned.indexOf(agentId);
+
+            if (index > -1) {
+                pinned.splice(index, 1);
+            } else {
+                pinned.push(agentId);
+            }
+
+            localStorage.setItem('pinnedAgents', JSON.stringify(pinned));
+            renderAgentList();
+        }
+
+        // =====================================================================
+        // Mobile Sidebar Functions
+        // =====================================================================
+        function toggleSidebar() {
+            state.sidebarOpen = !state.sidebarOpen;
+            updateSidebarState();
+        }
+
+        function openSidebar() {
+            state.sidebarOpen = true;
+            updateSidebarState();
+        }
+
+        function closeSidebar() {
+            state.sidebarOpen = false;
+            updateSidebarState();
+        }
+
+        function updateSidebarState() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+
+            if (state.sidebarOpen) {
+                sidebar.classList.add('open');
+                overlay.classList.add('visible');
+            } else {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('visible');
+            }
+        }
+
+        function isMobile() {
+            return window.innerWidth <= 768;
+        }
+
+        function updateTouchDebugOverlay(message) {
+            const touchDebug = new URLSearchParams(window.location.search).has('touchDebug');
+            if (!touchDebug) return;
+
+            if (!state.touchDebugOverlay) {
+                const overlay = document.createElement('div');
+                overlay.className = 'touch-debug-overlay';
+                overlay.id = 'touchDebugOverlay';
+                document.body.appendChild(overlay);
+                state.touchDebugOverlay = overlay;
+            }
+
+            state.touchDebugOverlay.textContent = message;
+        }
+
+
+        function updateMobileViewportLayout() {
+            if (!isMobile()) return;
+            const vv = window.visualViewport;
+
+            requestAnimationFrame(() => {
+                const viewportHeight = vv ? vv.height : window.innerHeight;
+                const keyboardOpen = vv ? vv.height < window.innerHeight * 0.75 : false;
+
+                document.documentElement.style.setProperty('--mobile-vh', `${viewportHeight}px`);
+                document.body.classList.toggle('keyboard-open', keyboardOpen);
+
+                if (state.fitAddon && state.terminal) {
+                    state.fitAddon.fit();
+                    sendResize();
+                }
+            });
+        }
+
+        function bindMobileViewportHandlers() {
+            if (state.mobileViewportBound) return;
+            state.mobileViewportBound = true;
+
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', updateMobileViewportLayout);
+            }
+
+            window.addEventListener('resize', updateMobileViewportLayout);
+            window.addEventListener('orientationchange', updateMobileViewportLayout);
+        }
+
+        function teardownTerminalBindings() {
+            if (typeof state.mobileTerminalCleanup === 'function') {
+                state.mobileTerminalCleanup();
+                state.mobileTerminalCleanup = null;
+            }
+
+            if (state.terminalWindowResizeHandler) {
+                window.removeEventListener('resize', state.terminalWindowResizeHandler);
+                state.terminalWindowResizeHandler = null;
+            }
+
+            if (state.terminalResizeObserver) {
+                state.terminalResizeObserver.disconnect();
+                state.terminalResizeObserver = null;
+            }
+        }
+
+        const ICONS = ['bot', 'cpu', 'code', 'terminal', 'database', 'cog', 'zap', 'sparkles', 'rocket', 'brain', 'circuit-board', 'bug', 'flask-conical', 'git-branch', 'layers', 'package', 'heart', 'heart-pulse', 'star', 'flame', 'ghost', 'cat', 'dog', 'bird', 'dollar-sign', 'wallet', 'piggy-bank', 'briefcase', 'graduation-cap', 'music', 'headphones', 'camera', 'pen-tool', 'palette', 'compass', 'anchor', 'crown', 'gem', 'skull', 'smile', 'om'];
+        const WS_PORT = 8891;
+
+        // Default favorites - will be merged with user's
+        const DEFAULT_FAVORITES = [
+            { name: 'Home', path: '~', icon: 'home' },
+            { name: 'Downloads', path: '~/Downloads', icon: 'download' },
+            { name: 'Projects', path: '~/Downloads/personal-os-main/Projects', icon: 'folder' },
+        ];
+
+        // =====================================================================
+        // API Functions
+        // =====================================================================
+        async function api(endpoint, options = {}) {
+            const res = await fetch(endpoint, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                }
+            });
+            return res.json();
+        }
+
+        async function fetchAgents() {
+            const data = await api('/api/agents');
+            state.agents = data.agents || [];
+            renderAgentList();
+        }
+
+        async function createAgentAPI(data) {
+            const result = await api('/api/agents', {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            return result.agent;
+        }
+
+        async function deleteAgentAPI(agentId) {
+            await api(`/api/agents/${agentId}`, { method: 'DELETE' });
+        }
+
+        async function fetchDirectory(path = null) {
+            const endpoint = path ? `/api/browse?path=${encodeURIComponent(path)}` : '/api/browse';
+            return await api(endpoint);
+        }
+
+        function sendTerminalData(data) {
+            if (!data) return;
+            if (!state.websocket || state.websocket.readyState !== WebSocket.OPEN) return;
+
+            const CHUNK_SIZE = 128;
+            if (data.length <= CHUNK_SIZE) {
+                state.websocket.send(data);
+                return;
+            }
+
+            let i = 0;
+            const sendChunk = () => {
+                if (i < data.length && state.websocket && state.websocket.readyState === WebSocket.OPEN) {
+                    const chunk = data.slice(i, i + CHUNK_SIZE);
+                    state.websocket.send(chunk);
+                    i += CHUNK_SIZE;
+                    setTimeout(sendChunk, 10);
+                }
+            };
+            sendChunk();
+        }
+
+        function pasteTextIntoTerminal(text) {
+            if (!text) return;
+            if (!state.terminal) return;
+
+            // Use xterm's native paste path so bracketed paste and input semantics
+            // match normal user paste behavior.
+            if (typeof state.terminal.paste === 'function') {
+                state.terminal.paste(text);
+            } else {
+                sendTerminalData(text);
+            }
+        }
+
+        async function pasteFromClipboard() {
+            if (!state.websocket || state.websocket.readyState !== WebSocket.OPEN) {
+                alert('Terminal is not connected yet.');
+                return;
+            }
+
+            let text = '';
+            try {
+                if (navigator.clipboard && navigator.clipboard.readText) {
+                    text = await navigator.clipboard.readText();
+                }
+            } catch (err) {
+                console.warn('Clipboard read failed:', err);
+            }
+
+            if (!text) {
+                showPasteModal('');
+                return;
+            }
+
+            pasteTextIntoTerminal(text);
+            if (state.terminal) state.terminal.focus();
+        }
+
+        // =====================================================================
+        // Terminal Management
+        // =====================================================================
+        function initTerminal() {
+            teardownTerminalBindings();
+
+            if (state.terminal) {
+                state.terminal.dispose();
+            }
+
+            const isMobileDevice = window.innerWidth <= 768 || 'ontouchstart' in window;
+
+            state.terminal = new Terminal({
+                cursorBlink: true,
+                fontSize: isMobileDevice ? 11 : 13,
+                fontFamily: "'SF Mono', Monaco, 'Fira Code', 'Cascadia Code', monospace",
+                scrollback: 10000,
+                convertEol: true,
+                // Reduce scroll sensitivity on mobile
+                scrollSensitivity: isMobileDevice ? 3 : 1,
+                fastScrollSensitivity: isMobileDevice ? 10 : 5,
+                theme: {
+                    background: '#0d1117',
+                    foreground: '#fafafa',
+                    cursor: '#a855f7',
+                    cursorAccent: '#0d1117',
+                    selectionBackground: 'rgba(168, 85, 247, 0.3)',
+                    black: '#161b22',
+                    red: '#ef4444',
+                    green: '#22c55e',
+                    yellow: '#eab308',
+                    blue: '#3b82f6',
+                    magenta: '#a855f7',
+                    cyan: '#06b6d4',
+                    white: '#fafafa',
+                    brightBlack: '#52525b',
+                    brightRed: '#f87171',
+                    brightGreen: '#4ade80',
+                    brightYellow: '#facc15',
+                    brightBlue: '#60a5fa',
+                    brightMagenta: '#c084fc',
+                    brightCyan: '#22d3ee',
+                    brightWhite: '#ffffff'
+                },
+                allowProposedApi: true
+            });
+
+            state.fitAddon = new FitAddon.FitAddon();
+            state.terminal.loadAddon(state.fitAddon);
+
+            const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+            state.terminal.loadAddon(webLinksAddon);
+
+            const container = document.getElementById('terminal');
+            container.innerHTML = '';
+            state.terminal.open(container);
+            state.fitAddon.fit();
+            if (isMobileDevice) {
+                bindMobileViewportHandlers();
+                updateMobileViewportLayout();
+            }
+
+            // Simplified mobile touch: rely on native xterm.js viewport scrolling
+            if (isMobileDevice) {
+                setTimeout(() => {
+                    const textarea = container.querySelector('.xterm-helper-textarea');
+                    const cleanupFns = [];
+
+                    const sendPastedText = (e) => {
+                        const text = e.clipboardData?.getData('text/plain');
+                        if (!text) return;
+                        e.preventDefault();
+                        pasteTextIntoTerminal(text);
+                    };
+
+                    if (textarea) {
+                        const handleTextareaPaste = (e) => sendPastedText(e);
+                        const handleFocus = () => {
+                            if (!window.visualViewport) {
+                                document.body.classList.add('keyboard-open');
+                            }
+                        };
+                        const handleBlur = () => {
+                            if (!window.visualViewport) {
+                                document.body.classList.remove('keyboard-open');
+                            }
+                        };
+
+                        textarea.addEventListener('paste', handleTextareaPaste);
+                        textarea.addEventListener('focus', handleFocus);
+                        textarea.addEventListener('blur', handleBlur);
+
+                        cleanupFns.push(() => textarea.removeEventListener('paste', handleTextareaPaste));
+                        cleanupFns.push(() => textarea.removeEventListener('focus', handleFocus));
+                        cleanupFns.push(() => textarea.removeEventListener('blur', handleBlur));
+
+                        // Only scroll terminal into view when keyboard opens.
+                        if (window.visualViewport) {
+                            const handleViewportResize = () => {
+                                if (window.visualViewport.height < window.innerHeight * 0.75) {
+                                    requestAnimationFrame(() => {
+                                        textarea.scrollIntoView({
+                                            behavior: 'auto',
+                                            block: 'start',
+                                            inline: 'nearest'
+                                        });
+                                    });
+                                }
+                            };
+                            window.visualViewport.addEventListener('resize', handleViewportResize);
+                            cleanupFns.push(() => window.visualViewport.removeEventListener('resize', handleViewportResize));
+                        }
+                    }
+
+                    const handleContainerPaste = (e) => sendPastedText(e);
+                    container.addEventListener('paste', handleContainerPaste);
+                    cleanupFns.push(() => container.removeEventListener('paste', handleContainerPaste));
+
+                    state.mobileTerminalCleanup = () => {
+                        cleanupFns.forEach((cleanup) => cleanup());
+                    };
+                }, 100);
+            }
+
+            // Handle terminal input - chunk large pastes to avoid overwhelming PTY
+            state.terminal.onData(data => {
+                sendTerminalData(data);
+            });
+
+            // Handle resize
+            state.terminalWindowResizeHandler = () => {
+                if (state.fitAddon) {
+                    state.fitAddon.fit();
+                    sendResize();
+                }
+            };
+            window.addEventListener('resize', state.terminalWindowResizeHandler);
+
+            // Also fit when terminal container resizes
+            state.terminalResizeObserver = new ResizeObserver(() => {
+                // Skip during canvas resize drag to prevent fighting
+                if (canvasResizing) return;
+
+                if (state.fitAddon && state.terminal) {
+                    // Small delay to let DOM settle
+                    requestAnimationFrame(() => {
+                        if (canvasResizing) return; // Double-check after RAF
+                        state.fitAddon.fit();
+                        sendResize();
+                    });
+                }
+            });
+            state.terminalResizeObserver.observe(container);
+            state.terminalResizeObserver.observe(document.getElementById('terminalContent'));
+        }
+
+        function sendResize() {
+            if (state.websocket && state.websocket.readyState === WebSocket.OPEN && state.terminal) {
+                const rows = state.terminal.rows;
+                const cols = state.terminal.cols;
+                console.log(`Sending resize: ${cols}x${rows}`);
+                state.websocket.send(JSON.stringify({
+                    type: 'resize',
+                    rows: rows,
+                    cols: cols
+                }));
+            }
+        }
+
+        function connectWebSocket(agentId) {
+            // Close existing connection
+            if (state.websocket) {
+                state.websocket.close();
+            }
+
+            const wsUrl = `ws://${window.location.hostname}:${WS_PORT}/terminal/${agentId}`;
+            state.websocket = new WebSocket(wsUrl);
+
+            state.websocket.binaryType = 'arraybuffer';
+
+            state.websocket.onopen = () => {
+                console.log('WebSocket connected');
+                updateConnectionStatus(true);
+                // Send resize IMMEDIATELY so server knows size before sending scrollback
+                if (state.fitAddon && state.terminal) {
+                    state.fitAddon.fit();
+                    sendResize();
+                }
+                // Send again after a bit in case of race condition
+                setTimeout(sendResize, 200);
+            };
+
+            state.websocket.onmessage = (event) => {
+                if (state.terminal) {
+                    const container = document.getElementById('terminal');
+                    const viewport = container?.querySelector('.xterm-viewport');
+
+                    // Check if user was at bottom before write
+                    let wasAtBottom = false;
+                    if (viewport) {
+                        const scrolledToBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 50;
+                        wasAtBottom = scrolledToBottom;
+                    }
+
+                    if (event.data instanceof ArrayBuffer) {
+                        const text = new TextDecoder().decode(event.data);
+                        state.terminal.write(text);
+                    } else {
+                        state.terminal.write(event.data);
+                    }
+
+                    // Auto-scroll to bottom if user was already at bottom
+                    if (wasAtBottom && viewport) {
+                        requestAnimationFrame(() => {
+                            viewport.scrollTop = viewport.scrollHeight;
+                        });
+                    }
+                }
+            };
+
+            state.websocket.onclose = () => {
+                console.log('WebSocket closed');
+                updateConnectionStatus(false);
+
+                // Auto-reconnect after 2 seconds if we still have this agent selected
+                if (state.currentAgent && state.currentAgent.id === agentId) {
+                    console.log('Attempting reconnect in 2s...');
+                    setTimeout(() => {
+                        if (state.currentAgent && state.currentAgent.id === agentId) {
+                            console.log('Reconnecting WebSocket...');
+                            connectWebSocket(agentId);
+                        }
+                    }, 2000);
+                }
+            };
+
+            state.websocket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateConnectionStatus(false);
+            };
+        }
+
+        function updateConnectionStatus(connected) {
+            const status = document.getElementById('terminalStatus');
+            if (connected) {
+                status.innerHTML = `
+                    <div class="status-indicator online"></div>
+                    <span>Connected</span>
+                `;
+                status.style.cursor = 'default';
+                status.onclick = null;
+            } else {
+                status.innerHTML = `
+                    <div class="status-indicator offline"></div>
+                    <span>Reconnect</span>
+                `;
+                status.style.cursor = 'pointer';
+                status.onclick = () => {
+                    if (state.currentAgent) {
+                        console.log('Manual reconnect triggered');
+                        connectWebSocket(state.currentAgent.id);
+                    }
+                };
+            }
+        }
+
+        // =====================================================================
+        // UI Rendering
+        // =====================================================================
+        function updateTabTitle() {
+            const attention = state.agents.filter(a => a.notification === 'attention').length;
+            const done = state.agents.filter(a => a.notification === 'done').length;
+
+            if (attention > 0) {
+                document.title = `(!) sutra`;
+            } else if (done > 0) {
+                document.title = `(${done}) sutra`;
+            } else {
+                document.title = 'sutra';
+            }
+        }
+
+        function renderAgentList() {
+            const orchestratorSlot = document.getElementById('orchestratorSlot');
+            const workersList = document.getElementById('workersList');
+
+            // Update tab title based on notifications
+            updateTabTitle();
+
+            // Separate orchestrator and workers
+            const orchestrator = state.agents.find(a => a.role === 'orchestrator');
+            const workers = state.agents.filter(a => a.role !== 'orchestrator');
+
+            // Render orchestrator
+            if (orchestrator) {
+                orchestratorSlot.innerHTML = '';
+                orchestratorSlot.appendChild(createAgentItem(orchestrator, true));
+            } else {
+                orchestratorSlot.innerHTML = `
+                    <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                        No orchestrator set
+                    </div>
+                `;
+            }
+
+            // Render workers
+            workersList.innerHTML = '';
+            if (workers.length === 0) {
+                workersList.innerHTML = `
+                    <div style="padding: 8px 12px; color: var(--text-muted); font-size: 12px; font-style: italic;">
+                        No workers yet
+                    </div>
+                `;
+            } else {
+                workers.forEach(agent => {
+                    workersList.appendChild(createAgentItem(agent, false));
+                });
+            }
+
+            // Re-render Lucide icons
+            lucide.createIcons();
+        }
+
+        function createAgentItem(agent, isOrchestrator) {
+            const item = document.createElement('div');
+
+            // Determine state class
+            let stateClass = 'state-idle';
+            let statusText = 'Idle';
+            let showBadge = false;
+
+            if (agent.notification === 'attention') {
+                stateClass = 'state-attention';
+                statusText = 'Needs approval';
+                showBadge = true;
+            } else if (agent.notification === 'done') {
+                stateClass = 'state-done';
+                statusText = 'Done';
+                showBadge = true;
+            } else if (agent.status === 'busy') {
+                stateClass = 'state-working';
+                statusText = 'Working...';
+            } else if (agent.status === 'online') {
+                stateClass = 'state-idle';
+                statusText = 'Idle';
+            } else {
+                stateClass = '';
+                statusText = 'Offline';
+            }
+
+            const pinned = isPinned(agent.id);
+            item.className = `agent-item ${state.currentAgent?.id === agent.id ? 'active' : ''} ${isOrchestrator ? 'orchestrator' : ''} ${stateClass} ${pinned ? 'pinned' : ''}`;
+
+            const iconName = isOrchestrator ? 'crown' : (agent.icon || agent.emoji || 'bot');
+
+            item.innerHTML = `
+                <div class="agent-avatar" onclick="event.stopPropagation(); togglePin('${agent.id}', event)" title="${pinned ? 'Unpin agent' : 'Pin agent to track'}">
+                    <i data-lucide="${iconName}"></i>
+                    <div class="status-dot"></div>
+                    ${pinned ? '<div class="pin-badge"><i data-lucide="star"></i></div>' : ''}
+                </div>
+                <div class="agent-info">
+                    <div class="agent-name">${agent.display_name || agent.name}</div>
+                    <div class="agent-status">${statusText}</div>
+                </div>
+                ${showBadge ? '<div class="notification-badge"></div>' : ''}
+                <div class="agent-actions">
+                    <button class="agent-action-btn" onclick="event.stopPropagation(); showEditModal('${agent.id}')" title="Edit"><i data-lucide="pencil"></i></button>
+                    ${!isOrchestrator ? `<button class="agent-action-btn" onclick="event.stopPropagation(); promoteToOrchestrator('${agent.id}')" title="Promote to Orchestrator"><i data-lucide="crown"></i></button>` : ''}
+                    ${isOrchestrator ? `<button class="agent-action-btn" onclick="event.stopPropagation(); demoteOrchestrator('${agent.id}')" title="Demote to Worker"><i data-lucide="arrow-down"></i></button>` : ''}
+                    <button class="agent-action-btn danger" onclick="event.stopPropagation(); deleteAgent('${agent.id}')" title="Delete"><i data-lucide="x"></i></button>
+                </div>
+            `;
+
+            item.onclick = () => selectAgent(agent);
+            return item;
+        }
+
+        function renderIconPicker() {
+            const container = document.getElementById('iconPicker');
+            container.innerHTML = '';
+
+            ICONS.forEach(icon => {
+                const btn = document.createElement('button');
+                btn.className = `icon-option ${icon === state.selectedIcon ? 'selected' : ''}`;
+                btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+                btn.type = 'button';
+                btn.onclick = () => {
+                    container.querySelectorAll('.icon-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    state.selectedIcon = icon;
+                };
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        // Legacy support
+        function renderEmojiPicker() {
+            renderIconPicker();
+        }
+
+        // =====================================================================
+        // Agent Actions
+        // =====================================================================
+        function selectAgent(agent) {
+            state.currentAgent = agent;
+
+            // Close sidebar on mobile
+            if (isMobile()) {
+                closeSidebar();
+            }
+
+            // Clear notification for this agent
+            if (agent.notification) {
+                api(`/api/agents/${agent.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ notification: null })
+                }).then(() => fetchAgents());
+            }
+
+            // Update UI
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('terminalContent').classList.remove('hidden');
+
+            const iconName = agent.icon || agent.emoji || 'bot';
+            document.getElementById('terminalAvatar').innerHTML = `<i data-lucide="${iconName}"></i>`;
+            document.getElementById('terminalName').textContent = agent.display_name || agent.name;
+            document.getElementById('terminalCwd').textContent = agent.cwd;
+
+            renderAgentList();
+            lucide.createIcons();
+
+            // Initialize terminal if needed
+            if (!state.terminal) {
+                initTerminal();
+            } else {
+                // Reset terminal for new agent (clears state + content)
+                state.terminal.reset();
+            }
+
+            // Connect to agent's terminal
+            connectWebSocket(agent.id);
+
+            // Focus terminal and ensure it's fitted
+            setTimeout(() => {
+                if (state.fitAddon) state.fitAddon.fit();
+                if (state.terminal) {
+                    state.terminal.focus();
+                }
+                sendResize();
+
+                if (isMobile()) {
+                    updateMobileViewportLayout();
+                }
+            }, 100);
+        }
+
+        async function createAgent() {
+            const name = document.getElementById('newAgentName').value.trim();
+            const cwd = document.getElementById('newAgentCwd').value.trim();
+
+            if (!name || !cwd) {
+                alert('Name and working directory are required');
+                return;
+            }
+
+            try {
+                const agent = await createAgentAPI({
+                    name,
+                    display_name: document.getElementById('newAgentDisplayName').value.trim() || name,
+                    cwd,
+                    icon: state.selectedIcon,
+                    emoji: state.selectedIcon, // backwards compat
+                    model: document.getElementById('newAgentModel').value,
+                    system_prompt: document.getElementById('newAgentPrompt').value.trim() || null
+                });
+
+                hideCreateModal();
+                await fetchAgents();
+                selectAgent(agent);
+            } catch (err) {
+                alert('Failed to create agent: ' + err.message);
+            }
+        }
+
+        async function promoteToOrchestrator(agentId) {
+            // Demote current orchestrator first
+            const currentOrchestrator = state.agents.find(a => a.role === 'orchestrator');
+            if (currentOrchestrator) {
+                await api(`/api/agents/${currentOrchestrator.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ role: 'worker' })
+                });
+            }
+
+            // Promote the selected agent
+            await api(`/api/agents/${agentId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ role: 'orchestrator' })
+            });
+
+            await fetchAgents();
+        }
+
+        async function demoteOrchestrator(agentId) {
+            await api(`/api/agents/${agentId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ role: 'worker' })
+            });
+            await fetchAgents();
+        }
+
+        async function deleteAgent(agentId) {
+            const agent = state.agents.find(a => a.id === agentId);
+            if (!confirm(`Delete agent "${agent?.display_name || agent?.name}"?`)) {
+                return;
+            }
+
+            try {
+                await deleteAgentAPI(agentId);
+
+                if (state.currentAgent?.id === agentId) {
+                    state.currentAgent = null;
+                    if (state.websocket) {
+                        state.websocket.close();
+                    }
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    document.getElementById('terminalContent').classList.add('hidden');
+                }
+
+                await fetchAgents();
+            } catch (err) {
+                alert('Failed to delete agent: ' + err.message);
+            }
+        }
+
+        // =====================================================================
+        // Modal Functions
+        // =====================================================================
+        function showCreateModal() {
+            document.getElementById('createModal').classList.remove('hidden');
+            document.getElementById('newAgentName').value = '';
+            document.getElementById('newAgentDisplayName').value = '';
+            document.getElementById('newAgentCwd').value = '';
+            document.getElementById('newAgentPrompt').value = '';
+            document.getElementById('fileBrowser').classList.add('hidden');
+            state.selectedIcon = 'bot';
+            renderIconPicker();
+            renderFavorites();
+            lucide.createIcons();
+        }
+
+        function hideCreateModal() {
+            document.getElementById('createModal').classList.add('hidden');
+            document.getElementById('fileBrowser').classList.add('hidden');
+        }
+
+        function showEditModal(agentId) {
+            const agent = state.agents.find(a => a.id === agentId);
+            if (!agent) return;
+
+            document.getElementById('editModal').classList.remove('hidden');
+            document.getElementById('editAgentId').value = agentId;
+            document.getElementById('editAgentDisplayName').value = agent.display_name || agent.name;
+            document.getElementById('editAgentModel').value = agent.model || 'sonnet';
+
+            state.editingIcon = agent.icon || agent.emoji || 'bot';
+            renderEditIconPicker();
+            lucide.createIcons();
+        }
+
+        function hideEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+        }
+
+        async function showSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+            // Load current settings
+            try {
+                const data = await api('/api/settings');
+                state.settings = data;
+                const interval = data.orchestrator_cron_enabled === false ? 0 : (data.orchestrator_cron_interval || 300);
+                document.getElementById('settingsCronInterval').value = interval.toString();
+            } catch (err) {
+                console.error('Failed to load settings:', err);
+            }
+            lucide.createIcons();
+        }
+
+        function hideSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function showPasteModal(initialText = '') {
+            const modal = document.getElementById('pasteModal');
+            const input = document.getElementById('pasteFallbackInput');
+            input.value = initialText || '';
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+            setTimeout(() => input.focus(), 0);
+        }
+
+        function hidePasteModal() {
+            document.getElementById('pasteModal').classList.add('hidden');
+        }
+
+        function submitPasteFallback() {
+            const input = document.getElementById('pasteFallbackInput');
+            const text = input.value;
+            if (!text) return;
+            pasteTextIntoTerminal(text);
+            hidePasteModal();
+            if (state.terminal) state.terminal.focus();
+        }
+
+        async function updateCronSettings() {
+            const interval = parseInt(document.getElementById('settingsCronInterval').value);
+            const enabled = interval > 0;
+
+            try {
+                await api('/api/settings', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        orchestrator_cron_enabled: enabled,
+                        orchestrator_cron_interval: enabled ? interval : 300
+                    })
+                });
+                state.settings.orchestrator_cron_enabled = enabled;
+                state.settings.orchestrator_cron_interval = interval;
+            } catch (err) {
+                console.error('Failed to update settings:', err);
+                alert('Failed to save settings');
+            }
+        }
+
+        function renderEditIconPicker() {
+            const container = document.getElementById('editIconPicker');
+            container.innerHTML = '';
+
+            ICONS.forEach(icon => {
+                const btn = document.createElement('button');
+                btn.className = `icon-option ${icon === state.editingIcon ? 'selected' : ''}`;
+                btn.innerHTML = `<i data-lucide="${icon}"></i>`;
+                btn.type = 'button';
+                btn.onclick = () => {
+                    container.querySelectorAll('.icon-option').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    state.editingIcon = icon;
+                };
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+        }
+
+        async function saveAgentEdit() {
+            const agentId = document.getElementById('editAgentId').value;
+            const displayName = document.getElementById('editAgentDisplayName').value.trim();
+            const model = document.getElementById('editAgentModel').value;
+
+            try {
+                await api(`/api/agents/${agentId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        display_name: displayName,
+                        icon: state.editingIcon,
+                        emoji: state.editingIcon,
+                        model: model
+                    })
+                });
+
+                hideEditModal();
+                await fetchAgents();
+
+                // Update current agent if it's the one we edited
+                if (state.currentAgent?.id === agentId) {
+                    const updated = state.agents.find(a => a.id === agentId);
+                    if (updated) selectAgent(updated);
+                }
+            } catch (err) {
+                alert('Failed to update agent: ' + err.message);
+            }
+        }
+
+        // =====================================================================
+        // Favorites
+        // =====================================================================
+        function getFavorites() {
+            const stored = localStorage.getItem('agent-chat-favorites');
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch {
+                    return [...DEFAULT_FAVORITES];
+                }
+            }
+            return [...DEFAULT_FAVORITES];
+        }
+
+        function saveFavorites(favorites) {
+            localStorage.setItem('agent-chat-favorites', JSON.stringify(favorites));
+        }
+
+        function renderFavorites() {
+            const container = document.getElementById('favoritesList');
+            const favorites = getFavorites();
+
+            container.innerHTML = '';
+
+            favorites.forEach((fav, index) => {
+                const item = document.createElement('div');
+                item.className = 'favorite-item';
+                const iconName = fav.icon || 'folder';
+                item.innerHTML = `
+                    <span class="fav-icon"><i data-lucide="${iconName}"></i></span>
+                    <span class="fav-name">${fav.name}</span>
+                    <span class="fav-remove" onclick="event.stopPropagation(); removeFavorite(${index})" title="Remove"><i data-lucide="x"></i></span>
+                `;
+                item.onclick = () => selectFavorite(fav.path);
+                container.appendChild(item);
+            });
+
+            if (favorites.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">No favorites yet</div>';
+            }
+
+            lucide.createIcons();
+        }
+
+        function selectFavorite(path) {
+            // Expand ~ to home directory
+            document.getElementById('newAgentCwd').value = path;
+            // Also trigger a browse to expand the path
+            expandPath(path);
+        }
+
+        async function expandPath(path) {
+            try {
+                const data = await fetchDirectory(path);
+                document.getElementById('newAgentCwd').value = data.current;
+            } catch {
+                // Keep the path as-is if expansion fails
+            }
+        }
+
+        function addCurrentAsFavorite() {
+            const path = document.getElementById('newAgentCwd').value.trim();
+            if (!path) {
+                alert('Enter a path first');
+                return;
+            }
+
+            const name = prompt('Name for this favorite:', path.split('/').pop() || 'Favorite');
+            if (!name) return;
+
+            const favorites = getFavorites();
+
+            // Check for duplicates
+            if (favorites.some(f => f.path === path)) {
+                alert('This path is already in favorites');
+                return;
+            }
+
+            favorites.push({ name, path, icon: 'star' });
+            saveFavorites(favorites);
+            renderFavorites();
+        }
+
+        function removeFavorite(index) {
+            const favorites = getFavorites();
+            favorites.splice(index, 1);
+            saveFavorites(favorites);
+            renderFavorites();
+        }
+
+        // =====================================================================
+        // File Browser
+        // =====================================================================
+        async function toggleFileBrowser() {
+            const browser = document.getElementById('fileBrowser');
+            const isHidden = browser.classList.contains('hidden');
+
+            if (isHidden) {
+                browser.classList.remove('hidden');
+                const currentPath = document.getElementById('newAgentCwd').value || null;
+                await loadDirectory(currentPath);
+            } else {
+                browser.classList.add('hidden');
+            }
+        }
+
+        async function loadDirectory(path) {
+            const list = document.getElementById('fileBrowserList');
+            const pathDisplay = document.getElementById('fileBrowserPath');
+
+            list.innerHTML = '<div style="padding: 12px; color: var(--text-muted);">Loading...</div>';
+
+            try {
+                const data = await fetchDirectory(path);
+                pathDisplay.textContent = data.current;
+
+                list.innerHTML = '';
+
+                // Select button
+                const selectBtn = document.createElement('div');
+                selectBtn.className = 'file-item';
+                selectBtn.style.background = 'var(--accent-glow)';
+                selectBtn.innerHTML = `
+                    <span class="file-item-icon"><i data-lucide="check"></i></span>
+                    <span class="file-item-name" style="color: var(--accent); font-weight: 500;">Select this folder</span>
+                `;
+                selectBtn.onclick = () => {
+                    document.getElementById('newAgentCwd').value = data.current;
+                    document.getElementById('fileBrowser').classList.add('hidden');
+                };
+                list.appendChild(selectBtn);
+
+                // Directories
+                data.items.forEach(item => {
+                    if (item.is_dir) {
+                        const div = document.createElement('div');
+                        div.className = 'file-item';
+                        const iconName = item.name === '..' ? 'arrow-up' : 'folder';
+                        div.innerHTML = `
+                            <span class="file-item-icon"><i data-lucide="${iconName}"></i></span>
+                            <span class="file-item-name">${item.name}</span>
+                        `;
+                        div.onclick = () => loadDirectory(item.path);
+                        list.appendChild(div);
+                    }
+                });
+
+                lucide.createIcons();
+            } catch (err) {
+                list.innerHTML = `<div style="padding: 12px; color: var(--error);">Error loading directory</div>`;
+            }
+        }
+
+        // =====================================================================
+        // Canvas
+        // =====================================================================
+        let canvasWebSocket = null;
+        let canvasActive = false;
+        let canvasSplitPosition = 0.5; // Default 50/50 split
+        let canvasResizing = false; // Flag to prevent terminal resize during drag
+
+        function toggleCanvas() {
+            canvasActive = !canvasActive;
+
+            const terminalArea = document.getElementById('terminalArea');
+            const canvasPanel = document.getElementById('canvasPanel');
+            const canvasResizeHandle = document.getElementById('canvasResizeHandle');
+            const canvasBtn = document.getElementById('canvasBtn');
+
+            if (canvasActive) {
+                terminalArea.classList.add('canvas-active');
+                canvasPanel.classList.remove('hidden');
+                canvasResizeHandle.classList.remove('hidden');
+                canvasBtn.classList.add('canvas-btn-active');
+                loadCanvas();
+                connectCanvasWebSocket();
+                initCanvasResize();
+                applySplitPosition();
+
+                // Trigger terminal resize after canvas opens
+                setTimeout(() => {
+                    if (state.fitAddon && state.terminal) {
+                        state.fitAddon.fit();
+                        sendResize();
+                    }
+                }, 100);
+            } else {
+                terminalArea.classList.remove('canvas-active');
+                canvasPanel.classList.add('hidden');
+                canvasResizeHandle.classList.add('hidden');
+                canvasBtn.classList.remove('canvas-btn-active');
+                disconnectCanvasWebSocket();
+
+                // Clear inline styles set by resize drag
+                const terminalContent = document.getElementById('terminalContent');
+                if (terminalContent) {
+                    terminalContent.style.flex = '';
+                    terminalContent.style.width = '';
+                }
+                canvasPanel.style.flex = '';
+                canvasPanel.style.width = '';
+
+                // Trigger terminal resize after canvas closes
+                setTimeout(() => {
+                    if (state.fitAddon && state.terminal) {
+                        state.fitAddon.fit();
+                        sendResize();
+                    }
+                }, 100);
+            }
+
+            lucide.createIcons();
+        }
+
+        function initCanvasResize() {
+            const handle = document.getElementById('canvasResizeHandle');
+            const terminalArea = document.getElementById('terminalArea');
+
+            // Load saved split position
+            const saved = localStorage.getItem('canvasSplitPosition');
+            if (saved) canvasSplitPosition = parseFloat(saved);
+
+            let isDragging = false;
+
+            const onMouseDown = (e) => {
+                isDragging = true;
+                canvasResizing = true; // Prevent terminal resize during drag
+                handle.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+                // Disable pointer events on iframe and terminal so they don't capture mouse
+                document.getElementById('canvasFrame').style.pointerEvents = 'none';
+                document.getElementById('terminal').style.pointerEvents = 'none';
+                e.preventDefault();
+            };
+
+            const onMouseMove = (e) => {
+                if (!isDragging) return;
+
+                const rect = terminalArea.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                let newSplit = mouseX / rect.width;
+
+                // Clamp between 0.2 and 0.8
+                newSplit = Math.max(0.2, Math.min(0.8, newSplit));
+
+                canvasSplitPosition = newSplit;
+                terminalArea.style.setProperty('--canvas-split', newSplit);
+            };
+
+            const onMouseUp = () => {
+                if (!isDragging) return;
+
+                isDragging = false;
+                handle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                // Re-enable pointer events on iframe and terminal
+                document.getElementById('canvasFrame').style.pointerEvents = '';
+                document.getElementById('terminal').style.pointerEvents = '';
+
+                localStorage.setItem('canvasSplitPosition', canvasSplitPosition.toString());
+
+                // Re-enable terminal resize and trigger final fit
+                setTimeout(() => {
+                    canvasResizing = false;
+                    if (state.fitAddon && state.terminal) {
+                        state.fitAddon.fit();
+                        sendResize();
+                    }
+                }, 50);
+            };
+
+            // Attach events
+            handle.addEventListener('mousedown', onMouseDown);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        }
+
+        function applySplitPosition() {
+            const terminalArea = document.getElementById('terminalArea');
+            if (terminalArea) {
+                terminalArea.style.setProperty('--canvas-split', canvasSplitPosition);
+            }
+        }
+
+        function openCanvasInNewTab() {
+            window.open('/canvas-view', '_blank');
+        }
+
+        async function loadCanvas() {
+            try {
+                const response = await fetch('/api/canvas');
+                const data = await response.json();
+                const frame = document.getElementById('canvasFrame');
+
+                // Write HTML to iframe using srcdoc (avoids CORS issues)
+                frame.srcdoc = data.html || '';
+            } catch (err) {
+                console.error('Failed to load canvas:', err);
+            }
+        }
+
+        function connectCanvasWebSocket() {
+            if (canvasWebSocket) return;
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.hostname}:8891/canvas`;
+
+            console.log('Connecting to canvas WebSocket:', wsUrl);
+
+            canvasWebSocket = new WebSocket(wsUrl);
+
+            canvasWebSocket.onopen = () => {
+                console.log('Canvas WebSocket connected');
+            };
+
+            canvasWebSocket.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    if (message.type === 'canvas_update') {
+                        console.log('Canvas update received');
+                        loadCanvas();
+                    }
+                } catch (err) {
+                    console.error('Canvas WebSocket message error:', err);
+                }
+            };
+
+            canvasWebSocket.onerror = (error) => {
+                console.error('Canvas WebSocket error:', error);
+            };
+
+            canvasWebSocket.onclose = () => {
+                console.log('Canvas WebSocket closed');
+                canvasWebSocket = null;
+                // Reconnect if canvas still active
+                if (canvasActive) {
+                    setTimeout(connectCanvasWebSocket, 2000);
+                }
+            };
+        }
+
+        function disconnectCanvasWebSocket() {
+            if (canvasWebSocket) {
+                canvasWebSocket.close();
+                canvasWebSocket = null;
+            }
+        }
+
+        // =====================================================================
+        // Initialize
+        // =====================================================================
+        async function init() {
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            if (isMobile()) {
+                bindMobileViewportHandlers();
+                updateMobileViewportLayout();
+            }
+
+            await fetchAgents();
+
+            // Periodically refresh agent list (2s for responsive working animation)
+            setInterval(fetchAgents, 2000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
